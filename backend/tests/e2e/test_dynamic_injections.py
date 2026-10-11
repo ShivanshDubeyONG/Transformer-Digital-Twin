@@ -474,14 +474,16 @@ def test_persistent_bias_end_to_end() -> None:
     assert len(th_evs) == 1
     assert th_evs[0].category == AnomalyCategory.THERMAL_LIMIT
     assert th_evs[0].observed_value == 91.0
-    assert th_evs[0].severity == 0.70
+    # 91 degC is 60% of the way from the 85 degC warning to the 95 degC critical limit:
+    # 0.41 + 0.19 * 0.6 = 0.524 (WARNING band), not a flat CRITICAL-band constant
+    assert th_evs[0].severity == 0.524
 
     # Health assessment reflects thermal domain impact
     assert curr.health_bundle is not None
     th_domain = curr.health_bundle.domains.get("thermal")
     assert th_domain is not None
-    assert th_domain.severity >= 0.70
-    assert th_domain.status in (HealthStatus.WARNING, HealthStatus.CRITICAL)
+    assert th_domain.severity == 0.524
+    assert th_domain.status == HealthStatus.WARNING
 
 
 # ==============================================================================
@@ -535,14 +537,16 @@ def test_sustained_overload_end_to_end() -> None:
     ]
     assert len(load_evs) == 1
     assert load_evs[0].category == AnomalyCategory.LOADING
-    assert load_evs[0].severity == 0.60
+    # Proportional within the 100%..125% warning band; stays in the WARNING severity band
+    assert load_evs[0].severity == round(0.41 + 0.19 * (u_inj - 1.00) / 0.25, 3)
+    assert 0.41 <= load_evs[0].severity < 0.61
 
     # Health domain impact
     assert curr.health_bundle is not None
     load_domain = curr.health_bundle.domains.get("loading")
     assert load_domain is not None
-    assert load_domain.severity >= 0.60
-    assert load_domain.status in (HealthStatus.WARNING, HealthStatus.CRITICAL)
+    assert load_domain.severity == load_evs[0].severity
+    assert load_domain.status == HealthStatus.WARNING
 
     # Step 6 (Injection finished): Load returns to normal
     assert states_inj[6].derived_electrical.relative_load_index < 1.00

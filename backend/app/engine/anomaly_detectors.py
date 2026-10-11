@@ -97,6 +97,29 @@ class AnomalyDetectorThresholds(BaseModel):
 
 DEFAULT_DETECTOR_THRESHOLDS = AnomalyDetectorThresholds()
 
+# Severity band for a reading between a detector's warning and critical thresholds. It matches the
+# WARNING band of othi.status_from_severity ([0.41, 0.61)), so a warning-level excursion reports a
+# WARNING domain and lands in the WARNING OTHI band (59..40), never CRITICAL.
+WARNING_BAND_SEVERITY_FLOOR = 0.41
+WARNING_BAND_SEVERITY_CEILING = 0.60
+
+
+def warning_band_severity(value: float, warning: float, critical: float) -> float:
+    """Severity proportional to how far `value` sits between the warning and critical thresholds.
+
+    Linear in the documented [warning, critical) interval, mapped onto the WARNING severity band:
+    the floor at the warning threshold, approaching the ceiling as the reading nears critical.
+    Works for both rising (warning < critical) and falling (warning > critical) limits. Readings at
+    or past critical are the caller's critical branch and keep their discrete critical severity.
+    """
+    span = critical - warning
+    fraction = 0.0 if span == 0 else (value - warning) / span
+    fraction = max(0.0, min(1.0, fraction))
+    severity = WARNING_BAND_SEVERITY_FLOOR + (
+        WARNING_BAND_SEVERITY_CEILING - WARNING_BAND_SEVERITY_FLOOR
+    ) * fraction
+    return round(severity, 3)
+
 # Declared asset metadata carried in the telemetry stream (constant by definition, not a sensor).
 STATIC_METADATA_SIGNALS: frozenset[str] = frozenset({"rated_kva"})
 
@@ -328,7 +351,7 @@ def detect_thermal_limits(
                     unit="Cel",
                     threshold_or_band=f">= {thresholds.oti_warning_degc}",
                     direction="HIGH",
-                    severity=0.70,
+                    severity=warning_band_severity(t_oil, thresholds.oti_warning_degc, thresholds.oti_critical_degc),
                     confidence=1.0,
                     input_lineage=["oti_degc"],
                     reason_codes=["TOP_OIL_WARNING_LIMIT_EXCEEDED"],
@@ -372,7 +395,7 @@ def detect_thermal_limits(
                     unit="Cel",
                     threshold_or_band=f">= {thresholds.rise_warning_degc}",
                     direction="HIGH",
-                    severity=0.65,
+                    severity=warning_band_severity(rise, thresholds.rise_warning_degc, thresholds.rise_critical_degc),
                     confidence=0.95,
                     input_lineage=["oti_degc", "ambient_temperature"],
                     reason_codes=["TOP_OIL_RISE_WARNING_EXCEEDED"],
@@ -507,7 +530,7 @@ def detect_loading(
                     unit="%",
                     threshold_or_band=f">= {thresholds.load_u_warning * 100.0}%",
                     direction="HIGH",
-                    severity=0.60,
+                    severity=warning_band_severity(u, thresholds.load_u_warning, thresholds.load_u_critical),
                     confidence=0.95,
                     input_lineage=["apparent_power_total"],
                     reason_codes=["NAMEPLATE_CAPACITY_OVERLOAD"],
@@ -566,7 +589,9 @@ def detect_phase_neutral(
                     unit="%",
                     threshold_or_band=f">= {thresholds.current_imbalance_warning_pct}%",
                     direction="HIGH",
-                    severity=0.60,
+                    severity=warning_band_severity(
+                        iub, thresholds.current_imbalance_warning_pct, thresholds.current_imbalance_critical_pct
+                    ),
                     confidence=0.90,
                     input_lineage=["current_l1", "current_l2", "current_l3"],
                     reason_codes=["CURRENT_IMBALANCE_WARNING_EXCEEDED"],
@@ -610,7 +635,7 @@ def detect_phase_neutral(
                     unit="ratio",
                     threshold_or_band=f">= {thresholds.neutral_ratio_warning}",
                     direction="HIGH",
-                    severity=0.55,
+                    severity=warning_band_severity(in_ratio, thresholds.neutral_ratio_warning, thresholds.neutral_ratio_critical),
                     confidence=0.90,
                     input_lineage=["neutral_current"],
                     reason_codes=["NEUTRAL_CURRENT_RATIO_ELEVATED"],
@@ -667,7 +692,9 @@ def detect_voltage_pf_frequency(
                     unit="%",
                     threshold_or_band=f">= {thresholds.voltage_imbalance_warning_pct}%",
                     direction="HIGH",
-                    severity=0.60,
+                    severity=warning_band_severity(
+                        vub, thresholds.voltage_imbalance_warning_pct, thresholds.voltage_imbalance_critical_pct
+                    ),
                     confidence=0.95,
                     input_lineage=["voltage_v1", "voltage_v2", "voltage_v3"],
                     reason_codes=["VOLTAGE_IMBALANCE_WARNING_EXCEEDED"],
@@ -711,7 +738,7 @@ def detect_voltage_pf_frequency(
                     unit="dimensionless",
                     threshold_or_band=f"<= {thresholds.pf_warning}",
                     direction="LOW",
-                    severity=0.50,
+                    severity=warning_band_severity(pf, thresholds.pf_warning, thresholds.pf_critical),
                     confidence=0.95,
                     input_lineage=["active_power_total", "apparent_power_total"],
                     reason_codes=["LOW_POWER_FACTOR_WARNING"],
@@ -997,7 +1024,9 @@ def detect_protection_oil_status(
                             unit="%",
                             threshold_or_band=f"<= {thresholds.oil_level_warning_pct}%",
                             direction="LOW",
-                            severity=0.70,
+                            severity=warning_band_severity(
+                                oli_val, thresholds.oil_level_warning_pct, thresholds.oil_level_critical_pct
+                            ),
                             confidence=0.95,
                             input_lineage=[m.signal_id],
                             reason_codes=["LOW_OIL_LEVEL_WARNING"],
