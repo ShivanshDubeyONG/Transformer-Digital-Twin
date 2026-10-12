@@ -20,7 +20,9 @@ from typing import Any, Dict, List, Optional, Sequence, Set
 import uuid
 import yaml
 
+from app.engine.anomaly_detectors import is_watch_level_evidence
 from app.engine.feedback import OperatorFeedbackLedger, ALLOWED_P0_RESOLUTION_REASON_CODES
+from app.engine.othi import SHADOW_ONLY_DETECTORS
 from app.models.anomaly import AnomalyCategory, EvidenceItem
 from app.models.health import OTHIBundle
 from app.models.maintenance import (
@@ -134,7 +136,8 @@ class MaintenanceEngine:
         if current_time.tzinfo is None:
             current_time = current_time.replace(tzinfo=timezone.utc)
 
-        evidence_list = list(evidence_items or [])
+        # Watch-level evidence scores OTHI only; it is not an alarm and raises no advisory
+        evidence_list = [ev for ev in (evidence_items or []) if not is_watch_level_evidence(ev)]
 
         # 1. Identify bad quality signals to apply selective suppression
         bad_signals: Set[str] = set()
@@ -214,12 +217,17 @@ class MaintenanceEngine:
             # Model-derived deviations are strictly gated by thermal qualification
             model_evs = []
             if self.cusum_qualification != "DISABLED" and self.is_thermal_qualified:
+                # Shadow-only detectors (e.g. CUSUM on an autocorrelated residual, which alarms on most
+                # normal frames) never penalize OTHI, so they must not raise a P1 inspection either
                 model_evs = [
                     ev
                     for ev in evidence_list
-                    if ev.category == AnomalyCategory.THERMAL_DEVIATION
-                    or ev.condition_family == "THERMAL_DEVIATION_UNEXPECTED"
-                    or getattr(ev, "detector_id", "") in ("DET_THERMAL_CUSUM_DRIFT", "DET_THERMAL_RESIDUAL_BIAS")
+                    if ev.detector_id not in SHADOW_ONLY_DETECTORS
+                    and (
+                        ev.category == AnomalyCategory.THERMAL_DEVIATION
+                        or ev.condition_family == "THERMAL_DEVIATION_UNEXPECTED"
+                        or getattr(ev, "detector_id", "") in ("DET_THERMAL_CUSUM_DRIFT", "DET_THERMAL_RESIDUAL_BIAS")
+                    )
                 ]
             therm_evs = limit_evs + model_evs
             if therm_evs:

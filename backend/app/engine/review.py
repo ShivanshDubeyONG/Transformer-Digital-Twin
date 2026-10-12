@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
+from app.engine.anomaly_detectors import is_watch_level_evidence
 from app.models.anomaly import AnomalyCategory, AnomalyEpisode, EvidenceItem
 from app.models.review import (
     ConditionState,
@@ -129,6 +130,9 @@ class ReviewFlagEngine:
 
         # 1. Inspect evidence items for eligible behavioural conditions
         for ev in evidence_items:
+            # Watch-level evidence scores OTHI only; it does not warrant a review flag
+            if is_watch_level_evidence(ev):
+                continue
             # Map evidence to candidate condition family and target
             fam: Optional[ReviewConditionFamily] = None
             target: Optional[str] = None
