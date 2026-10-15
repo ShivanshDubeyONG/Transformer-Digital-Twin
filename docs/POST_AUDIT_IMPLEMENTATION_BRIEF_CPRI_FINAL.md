@@ -4,8 +4,8 @@
 > **HISTORICAL IMPLEMENTATION BRIEF**  
 > This document records the post-audit methodology and runtime specification executed in earlier CPRI stabilization phases.  
 > For the current execution roadmap and verified runtime status, consult:
-> - [`GRIDPULSE_MASTER_EXECUTION_PLAN.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/GRIDPULSE_MASTER_EXECUTION_PLAN.md)
-> - [`docs/execution/GRIDPULSE_EXECUTION_LOG.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/execution/GRIDPULSE_EXECUTION_LOG.md)
+> - [`GRIDPULSE_MASTER_EXECUTION_PLAN.md`](../GRIDPULSE_MASTER_EXECUTION_PLAN.md)
+> - [`docs/execution/GRIDPULSE_EXECUTION_LOG.md`](execution/GRIDPULSE_EXECUTION_LOG.md)
 
 **Project:** CPRI Track 2 — Digital Twin for Intelligent Health Monitoring and Predictive Maintenance  
 **Date:** 2026-10-09  

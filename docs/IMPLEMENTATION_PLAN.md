@@ -4,15 +4,15 @@
 > **HISTORICAL / SUPERSEDED DOCUMENTATION**  
 > This document is the original hackathon implementation plan (Phases 1–10 baseline).  
 > For the current authoritative execution roadmap, candidate dataset scope, audit logs, and technical references, consult:
-> - [`GRIDPULSE_MASTER_EXECUTION_PLAN.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/GRIDPULSE_MASTER_EXECUTION_PLAN.md) — Primary Authoritative Execution Roadmap
-> - [`GRIDPULSE_DATASET_SYN_ADAPTATION_AND_EXTRA_DOMAIN_SCOPE.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/GRIDPULSE_DATASET_SYN_ADAPTATION_AND_EXTRA_DOMAIN_SCOPE.md) — Candidate Adaptation & Extra Domains
-> - [`docs/execution/GRIDPULSE_EXECUTION_LOG.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/execution/GRIDPULSE_EXECUTION_LOG.md) — Verification & Audit Evidence
-> - [`docs/references/TECHNICAL_REFERENCES_AND_CITATIONS.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/references/TECHNICAL_REFERENCES_AND_CITATIONS.md) — Standards Citations & Bibliography
+> - [`GRIDPULSE_MASTER_EXECUTION_PLAN.md`](../GRIDPULSE_MASTER_EXECUTION_PLAN.md) — Primary Authoritative Execution Roadmap
+> - [`GRIDPULSE_DATASET_SYN_ADAPTATION_AND_EXTRA_DOMAIN_SCOPE.md`](../GRIDPULSE_DATASET_SYN_ADAPTATION_AND_EXTRA_DOMAIN_SCOPE.md) — Candidate Adaptation & Extra Domains
+> - [`docs/execution/GRIDPULSE_EXECUTION_LOG.md`](execution/GRIDPULSE_EXECUTION_LOG.md) — Verification & Audit Evidence
+> - [`docs/references/TECHNICAL_REFERENCES_AND_CITATIONS.md`](references/TECHNICAL_REFERENCES_AND_CITATIONS.md) — Standards Citations & Bibliography
 
 **Project:** POWERNext-AI Hackathon 2026 — Track 2: Digital Twin for Intelligent Health Monitoring and Predictive Maintenance of Distribution Transformers  
 **Team:** SKY HIGH  
-**Canonical Architecture Reference:** [`docs/FINAL_ARCHITECTURE_DECISIONS.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/FINAL_ARCHITECTURE_DECISIONS.md)  
-**Requirements & Scope References:** [`docs/MVP.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/MVP.md), [`docs/SRS.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/SRS.md), [`docs/PRINCIPLES.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/PRINCIPLES.md), [`docs/CODING_RULES.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/CODING_RULES.md)
+**Canonical Architecture Reference:** [`docs/FINAL_ARCHITECTURE_DECISIONS.md`](FINAL_ARCHITECTURE_DECISIONS.md)  
+**Requirements & Scope References:** [`docs/MVP.md`](MVP.md), [`docs/SRS.md`](SRS.md), [`docs/PRINCIPLES.md`](PRINCIPLES.md), [`docs/CODING_RULES.md`](CODING_RULES.md)
 
 ---
 
@@ -28,8 +28,8 @@ This plan establishes the complete, deterministic, dependency-ordered engineerin
 5. **Exact 5 OTHI Domains:** Health aggregation evaluates exactly 5 domains: (1) `thermal`, (2) `loading`, (3) `phase and neutral`, (4) `voltage/PF/frequency`, (5) `oil/protection status`. Dielectric and mechanical health domains are explicitly excluded as ungrounded by available telemetry.
 6. **Deterministic Replay Scope:** Deterministic chronological telemetry playback with configurable speed ($1\times$, accelerated); no expanded pause/seek/play UI requirements unless required by frozen specs.
 7. **Dataset & Demo Separation:** Tripura historical telemetry is used for development, chronological 60/20/20 train/calibration/test split, parameter fitting, and single-shot evaluation. The hackathon demo replays held-out test-period telemetry or clearly labeled synthetic scenarios (`SYNTHETIC_SCENARIO`). The training period is never replayed as the main model demonstration.
-8. **Execution Discipline:** Implementation agents execute in strict step-by-step substep sequence. High-impact operations (large downloads, model calibration/fitting, CI/remote git) follow manual user control per [`docs/CODING_RULES.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/CODING_RULES.md).
-9. **Priority Tier Enforcement:** Features are strictly tiered (P0 Core $\rightarrow$ P1 Hackathon Showcase $\rightarrow$ P2 Robustness $\rightarrow$ P3 Stretch) as defined in [`docs/MVP.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/MVP.md) §25.
+8. **Execution Discipline:** Implementation agents execute in strict step-by-step substep sequence. High-impact operations (large downloads, model calibration/fitting, CI/remote git) follow manual user control per [`docs/CODING_RULES.md`](CODING_RULES.md).
+9. **Priority Tier Enforcement:** Features are strictly tiered (P0 Core $\rightarrow$ P1 Hackathon Showcase $\rightarrow$ P2 Robustness $\rightarrow$ P3 Stretch) as defined in [`docs/MVP.md`](MVP.md) §25.
 
 ---
 
@@ -119,7 +119,7 @@ graph TD
 
 #### Substeps:
 - **1.1 Dataset Ingestion & Automated Schema Audit**
-  - *What is implemented:* Provide user with manual download command/instructions for Kaggle Tripura dataset into `data/tripura_raw/` per [`docs/CODING_RULES.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/CODING_RULES.md) Rule 1. Implement automated audit script `backend/app/adapters/audit_dataset.py` measuring column names, data types, timestamp formats, sampling delta ($\Delta t$), dropout rates, and physical bounds ($V \in [200, 260]\ \text{V}$, $I \ge 0\ \text{A}$, $0 \le T_a \le 55^{\circ}\text{C}$, $T_a \le T_o \le 120^{\circ}\text{C}$, flagging $T_o < T_a - 10^{\circ}\text{C}$).
+  - *What is implemented:* Provide user with manual download command/instructions for Kaggle Tripura dataset into `data/tripura_raw/` per [`docs/CODING_RULES.md`](CODING_RULES.md) Rule 1. Implement automated audit script `backend/app/adapters/audit_dataset.py` measuring column names, data types, timestamp formats, sampling delta ($\Delta t$), dropout rates, and physical bounds ($V \in [200, 260]\ \text{V}$, $I \ge 0\ \text{A}$, $0 \le T_a \le 55^{\circ}\text{C}$, $T_a \le T_o \le 120^{\circ}\text{C}$, flagging $T_o < T_a - 10^{\circ}\text{C}$).
   - *Tests/checks:* Run dataset audit script on raw files; assert report generation.
   - *Success criteria:* Complete audit report compiled into `docs/TRIPURA_DATASET_AUDIT.md`.
 
@@ -225,7 +225,7 @@ graph TD
   - *Success criteria:* Numerical ODE solver matches closed-form analytical solution under constant drive; driver selection is deterministic and provenanced.
 
 - **4.2 Calibration, Baseline Models & Conformal Uncertainty Pipeline**
-  - *What is implemented:* Author `backend/app/engine/calibration.py` (executed under manual user command per [`docs/CODING_RULES.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/CODING_RULES.md) Rule 2):
+  - *What is implemented:* Author `backend/app/engine/calibration.py` (executed under manual user command per [`docs/CODING_RULES.md`](CODING_RULES.md) Rule 2):
     - Select load driver ($S$ vs $I_{\text{eq}}$) on 60% FIT partition using $K=5$ chronological expanding-window rolling-origin folds.
     - Fit $\beta_0 \ge 0, \beta_1 \ge 0, \tau \in [0.5, 24.0]\,\text{h}$ on FIT using bounded Huber loss ($\delta = 1.345 \cdot \sigma_{\text{fit}}$ with $\sigma_{\text{fit}} = 1.4826 \cdot \text{MAD}$) over deterministic log grid and Stage 2 refinement.
     - Evaluate identifiability diagnostics ($N \ge 500$, span $\ge 7\,\text{d}$, load variation $CV \ge 0.10, \text{range} \ge 10\,\text{kVA}$, fold stability $CV(\tau) \le 0.60$, domain boundary checks).
@@ -264,7 +264,7 @@ graph TD
   - *Success criteria:* Fast ($< 5\ \text{ms}$) scenario projection with empirical uncertainty bounds.
 
 - **4.5 Phase 4 Verification & Thermal Model Checkpoint**
-  - *What is implemented:* Comprehensive deterministic verification suite [`backend/tests/test_phase4_verification.py`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/tests/test_phase4_verification.py) and [`backend/tests/test_qualification.py`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/tests/test_qualification.py) covering all 6 pillars: (1) Thermal ODE stepping and state propagation, (2) Calibration artifact integrity and frozen parameter consumption, (3) Runtime residual tracking, CUSUM drift, warm-up, and capability confinement, (4) 2-hour what-if scenario projection, extrapolation widening, and fallback gating, (5) 7-dimension qualification architecture and shadow descriptive evaluation, (6) End-to-end event sequence integration ($< 5\,\text{ms}$ latency budget).
+  - *What is implemented:* Comprehensive deterministic verification suite [`backend/tests/test_phase4_verification.py`](../backend/tests/test_phase4_verification.py) and [`backend/tests/test_qualification.py`](../backend/tests/test_qualification.py) covering all 6 pillars: (1) Thermal ODE stepping and state propagation, (2) Calibration artifact integrity and frozen parameter consumption, (3) Runtime residual tracking, CUSUM drift, warm-up, and capability confinement, (4) 2-hour what-if scenario projection, extrapolation widening, and fallback gating, (5) 7-dimension qualification architecture and shadow descriptive evaluation, (6) End-to-end event sequence integration ($< 5\,\text{ms}$ latency budget).
   - *Tests/checks:* Run `pytest backend/tests/test_thermal.py backend/tests/test_calibration.py backend/tests/test_thermal_fallback.py backend/tests/test_scenario_simulator.py backend/tests/test_phase4_verification.py backend/tests/test_qualification.py`.
   - *Success criteria:* 100% test pass rate across all 194 backend tests; ODE accuracy verified against analytical solutions; calibration artifact integrity verified; fallback confinement confirmed; scenario projection verified; capability-specific qualification verified.
 

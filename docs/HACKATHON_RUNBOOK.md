@@ -39,6 +39,7 @@ Complete this exact checklist before taking the presentation stage:
   ```
 - [ ] **7. Browser Dashboard Setup:**
   - Open Chrome / Edge to `http://localhost:3000`.
+  - Navigate to **3D Twin** tab to confirm WebGL hardware acceleration, CAD disassembly slider, and sidebar toggle.
   - Open secondary tab to `http://localhost:8000/docs` (OpenAPI Swagger UI).
   - Open PDF viewer window with `test_report.pdf` ready for instant side-by-side inspection.
 
@@ -207,6 +208,7 @@ Seek with the replay bar or `POST /v1/replay {"action":"seek","seek_position":N}
 3. **Maintenance Advisories**: deterministic rule, priority and action window; acknowledge one (feedback ledger).
 4. **Thermal & What-If**: qualified 2-hour projection in four 30-min steps with the asset's own 90 % CAL envelope.
 5. **Data & Model Card**: parameters, TEST metrics and the eight-asset qualification matrix.
+6. **3D Twin & CAD Exploded View**: interactive 3D digital twin model in authentic ANSI 70 utility gray. Demonstrate the smooth exploded-view disassembly slider separating HV/LV bushings, corrugated tank, radiator fin banks, conservator piping, and internal core/coils. Highlight the low-profile micro-tag HUD and toggle the left sidebar for full-screen CAD inspection.
 
 ### Fallback demo (no qualified model): restart with `DEFAULT_ASSET_ID=TX_250_MIX`
 Same monitoring, OTHI, alerts and advisories; thermal model runs in **SHADOW_DESCRIPTIVE** mode, C3 forecasting and what-if are

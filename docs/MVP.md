@@ -4,9 +4,9 @@
 > **HISTORICAL SCOPE FREEZE DOCUMENT**  
 > This document defines the initial MVP scope freeze from 2026-10-03.  
 > For current architecture, execution plans, and multi-dataset integration status, consult:
-> - [`GRIDPULSE_MASTER_EXECUTION_PLAN.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/GRIDPULSE_MASTER_EXECUTION_PLAN.md)
-> - [`docs/FINAL_ARCHITECTURE_DECISIONS.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/FINAL_ARCHITECTURE_DECISIONS.md)
-> - [`docs/execution/GRIDPULSE_EXECUTION_LOG.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/execution/GRIDPULSE_EXECUTION_LOG.md)
+> - [`GRIDPULSE_MASTER_EXECUTION_PLAN.md`](../GRIDPULSE_MASTER_EXECUTION_PLAN.md)
+> - [`docs/FINAL_ARCHITECTURE_DECISIONS.md`](FINAL_ARCHITECTURE_DECISIONS.md)
+> - [`docs/execution/GRIDPULSE_EXECUTION_LOG.md`](execution/GRIDPULSE_EXECUTION_LOG.md)
 
 ## POWERNext-AI Hackathon 2026 --- Track 2
 

@@ -11,7 +11,7 @@
 
 This document provides complete, traceable, peer-reviewed, and standards-based citations for all mathematical models, physical equations, operational thresholds, anomaly detection algorithms, and architectural gating policies implemented across the GridPulse Digital Twin.
 
-In accordance with [`docs/PRINCIPLES.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/PRINCIPLES.md) ("Physics Before Prediction" and "Every Output Must Have a Reason"), GridPulse avoids black-box empirical correlations and ungrounded Remaining Useful Life (RUL) assertions. Every analytical claim is explicitly classified under the project's evidence ontology:
+In accordance with [`docs/PRINCIPLES.md`](../PRINCIPLES.md) ("Physics Before Prediction" and "Every Output Must Have a Reason"), GridPulse avoids black-box empirical correlations and ungrounded Remaining Useful Life (RUL) assertions. Every analytical claim is explicitly classified under the project's evidence ontology:
 - **FACT:** An engineering relationship or directly observed measurement with verified scope.
 - **SOURCE:** A claim supported by an external standard, utility specification, or peer-reviewed publication.
 - **ASSUMPTION:** A declared operating condition or parameter choice; never treated as unverified fact.

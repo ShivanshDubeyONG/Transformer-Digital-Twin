@@ -211,7 +211,7 @@ Conducted a targeted engineering audit of the Phase 3–5 implementation, data s
 Conducted a comprehensive synchronization of project documentation against the verified implementation, datasets, test evidence, and engineering standards:
 
 1. **Central Technical References Established:**
-   - Authored [`docs/references/TECHNICAL_REFERENCES_AND_CITATIONS.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/references/TECHNICAL_REFERENCES_AND_CITATIONS.md) providing peer-reviewed literature and normative standards citations (IEEE C57.91-2011, IEC 60076-7:2018, IEEE C57.109-2018, Glover et al. 2017, KSEB SCM-SPEC/XD/DT2 Rev 0.2, IS 1180:2014, ASTM D3487, NEMA MG-1, Page 1954, Vovk et al. 2005).
+   - Authored [`docs/references/TECHNICAL_REFERENCES_AND_CITATIONS.md`](../references/TECHNICAL_REFERENCES_AND_CITATIONS.md) providing peer-reviewed literature and normative standards citations (IEEE C57.91-2011, IEC 60076-7:2018, IEEE C57.109-2018, Glover et al. 2017, KSEB SCM-SPEC/XD/DT2 Rev 0.2, IS 1180:2014, ASTM D3487, NEMA MG-1, Page 1954, Vovk et al. 2005).
    - Mapped all implemented physical/statistical equations to code files and functions.
 2. **Audit Claims Review & Substantiation:**
    - *Pressure Envelope & Standards Disambiguation:* Clarified that "S7 §16.2" cites **Kerala State Electricity Board (KSEB) Technical Specification Doc. SCM-SPEC/XD/DT2 Rev 0.2 §16.2**, defining the $\pm 0.4\text{ kg/cm}^2$ ($\pm 39.2\text{ kPa}$) operating tank pressure boundary. Pressure limits $+25\text{ kPa(g)}$ alarm, $+35\text{ kPa(g)}$ PRD relief, and $-10\text{ kPa(g)}$ lower boundary are candidate `SCENARIO_SETTING` parameters designed to operate safely inside this envelope. Gated strictly to sealed corrugated tanks.
@@ -381,19 +381,19 @@ Executed the authorized, isolated controlled runtime trial of candidate model `D
 - **Verdict:** Replay state transitions $F(S_{t-1}, E_t) \rightarrow S_t$ are **100% deterministic and idempotent**.
 
 ### 16.6 Active Baseline Isolation & Quarantining Check
-- Verified production registry interfaces in [`backend/app/core/registry.py`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/core/registry.py):
+- Verified production registry interfaces in [`backend/app/core/registry.py`](../../backend/app/core/registry.py):
   - `resolve_asset_profile(asset_id="DT-01")`: Returns `ProfileVerificationStatus.UNVERIFIED` (candidate not yet cut over).
   - `resolve_model_artifact(asset_id="DT-01")`: Returns `UNCALIBRATED` (`parameters=None`), confirming candidate cannot accidentally run in production without Phase 7 cutover.
   - `resolve_model_artifact(asset_id="TX_1000_COMM")`: Returns `PROMOTED` ($\beta_0=7.8025^\circ\text{C}$), confirming active CPRI baseline remains 100% operational and untouched.
 
 ### 16.7 Smallest Implementation Change Required for Phase 7 Live Cutover
 Prior to any Phase 7 HTTP / live app cutover, the following minimal, focused changes are required:
-1. **Registry Resolver Extension ([`backend/app/core/registry.py`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/core/registry.py)):**
+1. **Registry Resolver Extension ([`backend/app/core/registry.py`](../../backend/app/core/registry.py)):**
    - In `resolve_asset_profile`: Route `DT-01` to `SYNTHETIC_ASSET_PROFILES["DT-01"]` (250 kVA, 1800s cadence, ONAN, Conservator).
    - In `resolve_model_artifact`: Add candidate resolution path loading `calibrated_thermal_model_candidate_dt-01.json` when `dataset_id == "gridpulse_synthetic_v1"` or copy promoted candidate to `data/processed/`.
-2. **Replay Router Extension ([`backend/app/api/routers/replay.py`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/api/routers/replay.py)):**
+2. **Replay Router Extension ([`backend/app/api/routers/replay.py`](../../backend/app/api/routers/replay.py)):**
    - In `ensure_dataset_loaded`: Add a branch for `DT-01` streaming `gridpulse_synthetic_30min.csv` (CAL partition) via `GridPulseSyntheticAdapter`.
-3. **Active Settings Switch ([`backend/app/core/config.py`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/core/config.py)):**
+3. **Active Settings Switch ([`backend/app/core/config.py`](../../backend/app/core/config.py)):**
    - Update default asset identifier to `DT-01`.
 
 ### 16.8 Trial Conclusion
@@ -418,7 +418,7 @@ Conducted a targeted engineering investigation into the maximum absolute thermal
   - Packet Quality Flag: `dq_flag == 'OK'` (communication link operational, sensor flatline)
 
 ### 17.2 Provenance & Root Cause: Ground-Truth Injected Sensor Flatline
-Forensic cross-referencing against [`data/candidates/gridpulse_synthetic_v1/SCENARIOS_AND_VALIDATION.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/data/candidates/gridpulse_synthetic_v1/SCENARIOS_AND_VALIDATION.md#L35) established the root cause with 100% certainty:
+Forensic cross-referencing against [`data/candidates/gridpulse_synthetic_v1/SCENARIOS_AND_VALIDATION.md`](../../data/candidates/gridpulse_synthetic_v1/SCENARIOS_AND_VALIDATION.md#L35) established the root cause with 100% certainty:
 - **Scenario ID:** `SC-DT-01-CAL-TOPOIL_FROZEN-1`
 - **Scenario Type:** `TOPOIL_FROZEN`
 - **Injected Window:** `2025-05-19 14:30 UTC` to `2025-05-19 22:00 UTC` (16 consecutive 30-min intervals / 7.5 hours).
@@ -434,7 +434,7 @@ Forensic cross-referencing against [`data/candidates/gridpulse_synthetic_v1/SCEN
 - **Recovery Time:** 0 minutes (instantaneous sub-1°C convergence upon sensor restoration). The model exhibited zero divergence, zero parameter corruption, and zero persistent state bias.
 
 ### 17.4 Anomaly Engine Verification
-- The runtime [`MultiDomainAnomalyEngine`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/anomaly_detectors.py) correctly detected the sensor failure:
+- The runtime [`MultiDomainAnomalyEngine`](../../backend/app/engine/anomaly_detectors.py) correctly detected the sensor failure:
   - `DET_PLAUS_FROZEN_SENSOR` fired 98 times during the 7.5-hour freeze episode with reason code `['SENSOR_FLATLINE_DETECTED']`.
   - The digital twin successfully recognized that the sensor was stuck and that the apparent residual excursion was an instrumentation fault rather than thermal distress.
 

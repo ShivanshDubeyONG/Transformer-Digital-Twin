@@ -13,25 +13,25 @@
 This audit assesses the runtime readiness, physical validity, and architectural integrity of the GridPulse backend. The objective is to identify all implementation bugs, configuration mismatches, qualification leaks, and API contract risks currently present in the codebase, and to specify precise, physics-grounded fixes that can be executed safely once the frontend pull request on the development fork is merged.
 
 ### Overall Backend Readiness
-The core architectural foundation is exceptionally solid. The stateful digital twin reducer, deterministic chronological replay engine, first-order grey-box thermal ODE, and capability tier evaluation adhere strictly to the project's engineering constitution ([PRINCIPLES.md](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/PRINCIPLES.md)) and locked architectural decisions ([FINAL_ARCHITECTURE_DECISIONS.md](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/FINAL_ARCHITECTURE_DECISIONS.md)). Replay execution across the 70,056-record CPRI v3.0.2 calibration dataset and 18,324-record Tripura empirical dataset is 100% deterministic, producing bit-exact SHA-256 state hashes.
+The core architectural foundation is exceptionally solid. The stateful digital twin reducer, deterministic chronological replay engine, first-order grey-box thermal ODE, and capability tier evaluation adhere strictly to the project's engineering constitution ([PRINCIPLES.md](docs/PRINCIPLES.md)) and locked architectural decisions ([FINAL_ARCHITECTURE_DECISIONS.md](docs/FINAL_ARCHITECTURE_DECISIONS.md)). Replay execution across the 70,056-record CPRI v3.0.2 calibration dataset and 18,324-record Tripura empirical dataset is 100% deterministic, producing bit-exact SHA-256 state hashes.
 
 ### Highest-Priority Issues
 However, this audit verified **seven critical defects and configuration mismatches** that impair operational inference and demonstration reliability:
 
 1. **Severed Thermal Residual Wiring in State Reducer (P0 Implementation Bug):**  
-   In [reducer.py:L178-232](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/reducer.py#L178-L232), `thermal_gate.evaluate_step()` computes `thermal_output`, but `thermal_output` is **never passed** to `anomaly_engine.evaluate_event()`. As a result, thermal residual deviations and CUSUM drift alarms are completely blocked from emitting evidence items during normal twin state reduction.
+   In [reducer.py:L178-232](backend/app/engine/reducer.py#L178-L232), `thermal_gate.evaluate_step()` computes `thermal_output`, but `thermal_output` is **never passed** to `anomaly_engine.evaluate_event()`. As a result, thermal residual deviations and CUSUM drift alarms are completely blocked from emitting evidence items during normal twin state reduction.
 2. **Permanent Post-Trip Latch in OTHI Engine (P0 Implementation Bug):**  
-   In [othi.py:L274](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/othi.py#L274), `self.latched_protection_trip` latches to `True` upon detecting a hardware trip. The engine contains **no mechanism to unlatch** when the breaker recloses or an operator records a resolution. The twin remains permanently stuck at `OTHI = 0` (CRITICAL) for the entire process lifetime.
+   In [othi.py:L274](backend/app/engine/othi.py#L274), `self.latched_protection_trip` latches to `True` upon detecting a hardware trip. The engine contains **no mechanism to unlatch** when the breaker recloses or an operator records a resolution. The twin remains permanently stuck at `OTHI = 0` (CRITICAL) for the entire process lifetime.
 3. **Improper Suppression of Direct Physical Thermal Limits (P0 Implementation Bug):**  
-   In [maintenance.py:L192](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/maintenance.py#L192), maintenance rule `MNT-THERM-002` enforces `self.is_thermal_qualified`. This inadvertently blocks maintenance advisories for direct physical overtemperature limit exceedances (e.g., $T_{\text{oil}} \ge 85^\circ\text{C}$) whenever an asset's predictive model is unpromoted (affecting 7 out of 8 assets).
+   In [maintenance.py:L192](backend/app/engine/maintenance.py#L192), maintenance rule `MNT-THERM-002` enforces `self.is_thermal_qualified`. This inadvertently blocks maintenance advisories for direct physical overtemperature limit exceedances (e.g., $T_{\text{oil}} \ge 85^\circ\text{C}$) whenever an asset's predictive model is unpromoted (affecting 7 out of 8 assets).
 4. **Permanent Advisory Retention & Ineffective `RESOLVE` Action (P1 Implementation Bug):**  
-   In [maintenance.py:L431-442](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/maintenance.py#L431-L442) and [feedback.py:L181-190](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/feedback.py#L181-L190), active recommendations are carried forward across steps unless dismissed. However, `get_active_dismissals()` only collects `action == "DISMISS"`, completely ignoring `action == "RESOLVE"`. Advisories can never be resolved or closed by operators.
+   In [maintenance.py:L431-442](backend/app/engine/maintenance.py#L431-L442) and [feedback.py:L181-190](backend/app/engine/feedback.py#L181-L190), active recommendations are carried forward across steps unless dismissed. However, `get_active_dismissals()` only collects `action == "DISMISS"`, completely ignoring `action == "RESOLVE"`. Advisories can never be resolved or closed by operators.
 5. **Canonical Signal Name Mismatch in OTHI Freshness Mapping (P1 Configuration Issue):**  
-   In [othi.py:L40-63](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/othi.py#L40-L63), `DOMAIN_SIGNAL_MAPPING["oil_protection"]` expects `"oil_level_percent"`, while both adapters ([cpri_v3.py:L208](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/adapters/cpri_v3.py#L208) and [tripura_map.yaml:L38](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/adapters/tripura_map.yaml#L38)) emit `"oil_level_pct"`. Consequently, oil level is never recognized as fresh, causing the Anti-Uplift rule to permanently freeze OTHI in a degraded state even after oil is refilled.
+   In [othi.py:L40-63](backend/app/engine/othi.py#L40-L63), `DOMAIN_SIGNAL_MAPPING["oil_protection"]` expects `"oil_level_percent"`, while both adapters ([cpri_v3.py:L208](backend/app/adapters/cpri_v3.py#L208) and [tripura_map.yaml:L38](backend/app/adapters/tripura_map.yaml#L38)) emit `"oil_level_pct"`. Consequently, oil level is never recognized as fresh, causing the Anti-Uplift rule to permanently freeze OTHI in a degraded state even after oil is refilled.
 6. **Hardcoded Nominal Voltage Reference (P1 Configuration Issue):**  
-   In [anomaly_detectors.py:L61](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/anomaly_detectors.py#L61), `v_nominal_v = 230.0` is hardcoded. Real and synthetic distribution feeders operate at 240V–250V nominal, generating constant false overvoltage alarms (>253V) while missing actual voltage sags down to 215V.
+   In [anomaly_detectors.py:L61](backend/app/engine/anomaly_detectors.py#L61), `v_nominal_v = 230.0` is hardcoded. Real and synthetic distribution feeders operate at 240V–250V nominal, generating constant false overvoltage alarms (>253V) while missing actual voltage sags down to 215V.
 7. **Zero-Tolerance Sensor Flatline Detector on Quantized Data (P2 Implementation Bug):**  
-   In [anomaly_detectors.py:L226-228](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/anomaly_detectors.py#L226-L228), `len(set(recent_vals)) == 1` flags a stuck sensor after 4 consecutive identical readings. Real telemetry has 1.0°C integer quantization where identical readings over 1–2 hours reflect normal thermal equilibrium, producing rampant false alarms.
+   In [anomaly_detectors.py:L226-228](backend/app/engine/anomaly_detectors.py#L226-L228), `len(set(recent_vals)) == 1` flags a stuck sensor after 4 consecutive identical readings. Real telemetry has 1.0°C integer quantization where identical readings over 1–2 hours reflect normal thermal equilibrium, producing rampant false alarms.
 
 ---
 
@@ -40,7 +40,7 @@ However, this audit verified **seven critical defects and configuration mismatch
 Each finding below has been directly verified against the active source code, test suites, and runtime logs.
 
 ### Finding 1: Severed Thermal Residual Evidence Wiring in State Reducer
-- **Source Location:** [backend/app/engine/reducer.py:L178-L235](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/reducer.py#L178-L235)
+- **Source Location:** [backend/app/engine/reducer.py:L178-L235](backend/app/engine/reducer.py#L178-L235)
 - **Class / Function:** `TwinReducer.reduce()`
 - **Verification Status:** **Directly Verified in Source Code.**
 - **Code Inspection:**
@@ -62,7 +62,7 @@ Each finding below has been directly verified against the active source code, te
   ```
   `thermal_output` is defined locally inside the `if self.thermal_gate is not None:` block and is **never passed** into `self.anomaly_engine.evaluate_event()`.
 - **Downstream Consequence:**  
-  Inside [anomaly_detectors.py:L365-366](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/anomaly_detectors.py#L365-L366):
+  Inside [anomaly_detectors.py:L365-366](backend/app/engine/anomaly_detectors.py#L365-L366):
   ```python
   if thermal_output is None:
       return []
@@ -72,7 +72,7 @@ Each finding below has been directly verified against the active source code, te
 ---
 
 ### Finding 2: Permanent Latched Protection Trip in OTHIEngine
-- **Source Location:** [backend/app/engine/othi.py:L269-L275, L337-L342, L428-L436](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/othi.py#L269-L275)
+- **Source Location:** [backend/app/engine/othi.py:L269-L275, L337-L342, L428-L436](backend/app/engine/othi.py#L269-L275)
 - **Class / Function:** `OTHIEngine.evaluate()`
 - **Verification Status:** **Directly Verified in Source Code.**
 - **Code Inspection:**
@@ -103,7 +103,7 @@ Each finding below has been directly verified against the active source code, te
 ---
 
 ### Finding 3: Qualification Gate Improperly Blocks Physical Thermal Limit Advisories
-- **Source Location:** [backend/app/engine/maintenance.py:L189-L200](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/maintenance.py#L189-L200)
+- **Source Location:** [backend/app/engine/maintenance.py:L189-L200](backend/app/engine/maintenance.py#L189-L200)
 - **Class / Function:** `MaintenanceEngine.evaluate()`
 - **Verification Status:** **Directly Verified in Source Code.**
 - **Code Inspection:**
@@ -127,7 +127,7 @@ Each finding below has been directly verified against the active source code, te
 ---
 
 ### Finding 4: Advisory Carry-Forward Retains Cleared Rules and Ignores `RESOLVE` Feedback
-- **Source Location:** [backend/app/engine/maintenance.py:L430-L442](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/maintenance.py#L430-L442) & [backend/app/engine/feedback.py:L181-190](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/feedback.py#L181-L190)
+- **Source Location:** [backend/app/engine/maintenance.py:L430-L442](backend/app/engine/maintenance.py#L430-L442) & [backend/app/engine/feedback.py:L181-190](backend/app/engine/feedback.py#L181-L190)
 - **Class / Function:** `MaintenanceEngine.evaluate()`, `OperatorFeedbackLedger.get_active_dismissals()`
 - **Verification Status:** **Directly Verified in Source Code.**
 - **Code Inspection:**
@@ -159,7 +159,7 @@ Each finding below has been directly verified against the active source code, te
 ---
 
 ### Finding 5: Canonical Signal Name Mismatch in OTHI Freshness Tracking
-- **Source Location:** [backend/app/engine/othi.py:L39-L63](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/othi.py#L39-L63)
+- **Source Location:** [backend/app/engine/othi.py:L39-L63](backend/app/engine/othi.py#L39-L63)
 - **Class / Function:** `DOMAIN_SIGNAL_MAPPING`
 - **Verification Status:** **Directly Verified in Source Code.**
 - **Code Inspection:**
@@ -181,12 +181,12 @@ Each finding below has been directly verified against the active source code, te
   - Phase currents: `signal_id = "current_i1", "current_i2", "current_i3"`
   - Phase voltages: `signal_id = "voltage_v1", "voltage_v2", "voltage_v3"`
 - **Downstream Consequence:**  
-  When an event arrives with valid `oil_level_pct`, `present_signals.intersection(DOMAIN_SIGNAL_MAPPING["oil_protection"])` is empty. The `oil_protection` domain is classified as `UNAVAILABLE` or `HARD_STALE`. If an oil level alarm had previously degraded the score, the Anti-Uplift rule ([othi.py:L418](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/othi.py#L418)) permanently withholds the score (`final_othi = None`) and locks operational status to `CRITICAL` even after oil is refilled.
+  When an event arrives with valid `oil_level_pct`, `present_signals.intersection(DOMAIN_SIGNAL_MAPPING["oil_protection"])` is empty. The `oil_protection` domain is classified as `UNAVAILABLE` or `HARD_STALE`. If an oil level alarm had previously degraded the score, the Anti-Uplift rule ([othi.py:L418](backend/app/engine/othi.py#L418)) permanently withholds the score (`final_othi = None`) and locks operational status to `CRITICAL` even after oil is refilled.
 
 ---
 
 ### Finding 6: Hardcoded Nominal Voltage in Detector Thresholds
-- **Source Location:** [backend/app/engine/anomaly_detectors.py:L61-L63](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/anomaly_detectors.py#L61-L63)
+- **Source Location:** [backend/app/engine/anomaly_detectors.py:L61-L63](backend/app/engine/anomaly_detectors.py#L61-L63)
 - **Class / Function:** `AnomalyDetectorThresholds`
 - **Verification Status:** **Directly Verified in Source Code.**
 - **Code Inspection:**
@@ -202,7 +202,7 @@ Each finding below has been directly verified against the active source code, te
 ---
 
 ### Finding 7: Zero-Tolerance Sensor Flatline Detector on Quantized SCADA
-- **Source Location:** [backend/app/engine/anomaly_detectors.py:L226-L248](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/anomaly_detectors.py#L226-L248)
+- **Source Location:** [backend/app/engine/anomaly_detectors.py:L226-L248](backend/app/engine/anomaly_detectors.py#L226-L248)
 - **Class / Function:** `detect_sensor_plausibility()`
 - **Verification Status:** **Directly Verified in Source Code.**
 - **Code Inspection:**
@@ -218,7 +218,7 @@ Each finding below has been directly verified against the active source code, te
 ---
 
 ### Finding 8: Flawed Rate-of-Change Scaling in Temperature Spike Detector
-- **Source Location:** [backend/app/engine/anomaly_detectors.py:L198-L224](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/anomaly_detectors.py#L198-L224)
+- **Source Location:** [backend/app/engine/anomaly_detectors.py:L198-L224](backend/app/engine/anomaly_detectors.py#L198-L224)
 - **Class / Function:** `detect_sensor_plausibility()`
 - **Verification Status:** **Directly Verified in Source Code.**
 - **Code Inspection:**
@@ -244,14 +244,14 @@ Each finding below has been directly verified against the active source code, te
 
 | ID | Target File & Function | Defect / Mechanism | Precise Proposed Change | Scientific / Engineering Justification |
 | :--- | :--- | :--- | :--- | :--- |
-| **FIX-1** | [reducer.py:L230](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/reducer.py#L230)<br>`TwinReducer.reduce()` | `thermal_output` is not passed to `evaluate_event()` | Initialize `thermal_output = None` before line 172, compute it in `if self.thermal_gate`, and pass `thermal_output=thermal_output` into `self.anomaly_engine.evaluate_event(...)` at line 230. | Restores the physical connection between the thermodynamic ODE engine and the anomaly evidence pipeline. |
-| **FIX-2** | [othi.py:L270-275](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/othi.py#L270-L275)<br>`OTHIEngine.evaluate()` | `latched_protection_trip` latches permanently | Check current trip signal status. If trip signals are present and active, set latch. If current signals explicitly report normal (e.g., `breaker_trip == 0` or `False`) and a feedback resolution event exists, clear `self.latched_protection_trip = False`. | Allows digital twin to recover operational health after physical inspection, repair, and breaker reclosure. |
-| **FIX-3** | [maintenance.py:L192](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/maintenance.py#L192)<br>`MaintenanceEngine.evaluate()` | `MNT-THERM-002` blocks physical limit advisories when model is unqualified | Split thermal rules: evaluate direct physical limits (`THERMAL_LIMIT_EXCEEDANCE`) unconditionally; gate only model-derived deviations (`THERMAL_DEVIATION_UNEXPECTED`) behind `self.is_thermal_qualified`. | Adheres to safety precedence: direct physical measurement limit exceedances must never be silenced by software model status. |
-| **FIX-4** | [maintenance.py:L430](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/maintenance.py#L430), [feedback.py:L181](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/feedback.py#L181) | Retains recommendations forever; ignores `RESOLVE` action | 1. Update `get_active_dismissals()` to collect both `"DISMISS"` and `"RESOLVE"` actions.<br>2. Add auto-closure check: if an advisory's underlying condition family has zero active evidence and quiet cooldown has elapsed, clear it. | Closes the loop on maintenance lifecycle; allows operators to resolve advisories and auto-clears resolved physical conditions. |
-| **FIX-5** | [othi.py:L40-63](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/othi.py#L40-L63)<br>`DOMAIN_SIGNAL_MAPPING` | Signal names do not match adapter outputs (`oil_level_pct`, `current_i1..3`, `voltage_v1..3`) | Add canonical signal aliases to `DOMAIN_SIGNAL_MAPPING`: include `"oil_level_pct"` in `oil_protection`; include `"current_i1"`, `"current_i2"`, `"current_i3"` in `loading` & `phase_neutral`; include `"voltage_v1"`, `"voltage_v2"`, `"voltage_v3"` in `voltage_pf_freq`. | Eliminates false domain staleness and prevents Anti-Uplift rule from locking OTHI score after oil refill. |
-| **FIX-6** | [anomaly_detectors.py:L61](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/anomaly_detectors.py#L61)<br>`AnomalyDetectorThresholds` | Hardcoded `v_nominal_v = 230.0` | Bind `v_nominal_v` dynamically from `AssetProfile.nominal_voltage_v` (defaulting to 240.0V phase-to-neutral / 415V line-to-line if unspecified). | Adapts voltage thresholds ($0.90 \times V_{\text{nom}}$ and $1.10 \times V_{\text{nom}}$) to actual feeder voltage ratings, eliminating false overvoltages. |
-| **FIX-7** | [anomaly_detectors.py:L226](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/anomaly_detectors.py#L226)<br>`detect_sensor_plausibility()` | Zero-tolerance flatline triggers on 1.0°C integer data | Add physical variance/step check: do not flag flatline if signal is temperature and variance is within measurement resolution floor ($\pm 0.5^\circ\text{C}$), or require minimum step count based on expected cadence (e.g., 8 steps for 15-min, 6 steps for 30-min). | Prevents normal nighttime thermal equilibrium on integer-quantized sensors from being falsely flagged as ADC hardware lockup. |
-| **FIX-8** | [anomaly_detectors.py:L198](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/anomaly_detectors.py#L198)<br>`detect_sensor_plausibility()` | Rate-of-change dampened by large $\Delta t$ | Add step-change threshold: `max_step_degc = 10.0^\circ\text{C}`. Flag as plausibility spike if `abs(val - last_val) > max_step_degc` regardless of interval duration. | Correctly intercepts unphysical instantaneous temperature jumps before they trigger spurious physical thermal critical alarms. |
+| **FIX-1** | [reducer.py:L230](backend/app/engine/reducer.py#L230)<br>`TwinReducer.reduce()` | `thermal_output` is not passed to `evaluate_event()` | Initialize `thermal_output = None` before line 172, compute it in `if self.thermal_gate`, and pass `thermal_output=thermal_output` into `self.anomaly_engine.evaluate_event(...)` at line 230. | Restores the physical connection between the thermodynamic ODE engine and the anomaly evidence pipeline. |
+| **FIX-2** | [othi.py:L270-275](backend/app/engine/othi.py#L270-L275)<br>`OTHIEngine.evaluate()` | `latched_protection_trip` latches permanently | Check current trip signal status. If trip signals are present and active, set latch. If current signals explicitly report normal (e.g., `breaker_trip == 0` or `False`) and a feedback resolution event exists, clear `self.latched_protection_trip = False`. | Allows digital twin to recover operational health after physical inspection, repair, and breaker reclosure. |
+| **FIX-3** | [maintenance.py:L192](backend/app/engine/maintenance.py#L192)<br>`MaintenanceEngine.evaluate()` | `MNT-THERM-002` blocks physical limit advisories when model is unqualified | Split thermal rules: evaluate direct physical limits (`THERMAL_LIMIT_EXCEEDANCE`) unconditionally; gate only model-derived deviations (`THERMAL_DEVIATION_UNEXPECTED`) behind `self.is_thermal_qualified`. | Adheres to safety precedence: direct physical measurement limit exceedances must never be silenced by software model status. |
+| **FIX-4** | [maintenance.py:L430](backend/app/engine/maintenance.py#L430), [feedback.py:L181](backend/app/engine/feedback.py#L181) | Retains recommendations forever; ignores `RESOLVE` action | 1. Update `get_active_dismissals()` to collect both `"DISMISS"` and `"RESOLVE"` actions.<br>2. Add auto-closure check: if an advisory's underlying condition family has zero active evidence and quiet cooldown has elapsed, clear it. | Closes the loop on maintenance lifecycle; allows operators to resolve advisories and auto-clears resolved physical conditions. |
+| **FIX-5** | [othi.py:L40-63](backend/app/engine/othi.py#L40-L63)<br>`DOMAIN_SIGNAL_MAPPING` | Signal names do not match adapter outputs (`oil_level_pct`, `current_i1..3`, `voltage_v1..3`) | Add canonical signal aliases to `DOMAIN_SIGNAL_MAPPING`: include `"oil_level_pct"` in `oil_protection`; include `"current_i1"`, `"current_i2"`, `"current_i3"` in `loading` & `phase_neutral`; include `"voltage_v1"`, `"voltage_v2"`, `"voltage_v3"` in `voltage_pf_freq`. | Eliminates false domain staleness and prevents Anti-Uplift rule from locking OTHI score after oil refill. |
+| **FIX-6** | [anomaly_detectors.py:L61](backend/app/engine/anomaly_detectors.py#L61)<br>`AnomalyDetectorThresholds` | Hardcoded `v_nominal_v = 230.0` | Bind `v_nominal_v` dynamically from `AssetProfile.nominal_voltage_v` (defaulting to 240.0V phase-to-neutral / 415V line-to-line if unspecified). | Adapts voltage thresholds ($0.90 \times V_{\text{nom}}$ and $1.10 \times V_{\text{nom}}$) to actual feeder voltage ratings, eliminating false overvoltages. |
+| **FIX-7** | [anomaly_detectors.py:L226](backend/app/engine/anomaly_detectors.py#L226)<br>`detect_sensor_plausibility()` | Zero-tolerance flatline triggers on 1.0°C integer data | Add physical variance/step check: do not flag flatline if signal is temperature and variance is within measurement resolution floor ($\pm 0.5^\circ\text{C}$), or require minimum step count based on expected cadence (e.g., 8 steps for 15-min, 6 steps for 30-min). | Prevents normal nighttime thermal equilibrium on integer-quantized sensors from being falsely flagged as ADC hardware lockup. |
+| **FIX-8** | [anomaly_detectors.py:L198](backend/app/engine/anomaly_detectors.py#L198)<br>`detect_sensor_plausibility()` | Rate-of-change dampened by large $\Delta t$ | Add step-change threshold: `max_step_degc = 10.0^\circ\text{C}`. Flag as plausibility spike if `abs(val - last_val) > max_step_degc` regardless of interval duration. | Correctly intercepts unphysical instantaneous temperature jumps before they trigger spurious physical thermal critical alarms. |
 
 ---
 
@@ -360,7 +360,7 @@ To guarantee zero regression upon implementing proposed fixes on the backend bra
 The frontend is currently under active development on a separate fork. **No API route names, method signatures, or high-level response models will be altered.** All proposed fixes preserve backward compatibility with the existing OpenAPI schemas:
 
 ### 1. `POST /v1/replay` Contract
-- **Schema:** [ReplayControlRequest](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/api/schemas.py#L73) (`extra="forbid"`).
+- **Schema:** [ReplayControlRequest](backend/app/api/schemas.py#L73) (`extra="forbid"`).
 - **Frontend Safe Call:** Frontend must only supply:
   ```json
   {
@@ -373,16 +373,16 @@ The frontend is currently under active development on a separate fork. **No API 
 - **Stability Guarantee:** No new mandatory parameters will be introduced.
 
 ### 2. `GET /v1/assets/{asset_id}/state` Contract
-- **Schema:** [AssetStateResponse](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/api/schemas.py#L125)
+- **Schema:** [AssetStateResponse](backend/app/api/schemas.py#L125)
 - **Fields Preserved:** `asset_id`, `state_time_utc`, `highest_tier`, `twin_state`, `fact_bundle`.
 - **Frontend Consumption:** Frontend continues to read `res.twin_state` for telemetry, active episodes, and recommendations.
 
 ### 3. `GET /v1/assets/{asset_id}/capabilities` Contract
-- **Schema:** [CapabilityManifest](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/models/capability.py#L40)
+- **Schema:** [CapabilityManifest](backend/app/models/capability.py#L40)
 - **Authoritative Gating:** The frontend must use `capabilities.C3.enabled` to toggle What-If simulation buttons and display `disabled_reason_codes` in the UI fallback banner. The backend will return transparent reason codes: `["MODEL_NOT_PROMOTED"]` or `["C2_UNAVAILABLE"]`.
 
 ### 4. `POST /v1/feedback` Contract
-- **Schema:** [OperatorFeedbackRequest](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/api/schemas.py)
+- **Schema:** [OperatorFeedbackRequest](backend/app/api/schemas.py)
 - **Coordination Note:** Once `FIX-4` is merged, frontend can safely send both `action: "ACKNOWLEDGE"` and `action: "RESOLVE"`. For P0 items, frontend must supply an authorized reason code (`"SITE_CLEARANCE_VERIFIED"` or `"TRIP_RESOLVED_AND_RESET"`).
 
 ---
@@ -439,15 +439,15 @@ graph TD
 ```
 
 1. **Step 1: Signal & Evidence Pipeline Wiring (FIX-1 & FIX-5)**  
-   - Pass `thermal_output` to `anomaly_engine.evaluate_event()` in [reducer.py](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/reducer.py).
-   - Add canonical aliases (`oil_level_pct`, `current_i1..3`, `voltage_v1..3`) to `DOMAIN_SIGNAL_MAPPING` in [othi.py](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/othi.py).
+   - Pass `thermal_output` to `anomaly_engine.evaluate_event()` in [reducer.py](backend/app/engine/reducer.py).
+   - Add canonical aliases (`oil_level_pct`, `current_i1..3`, `voltage_v1..3`) to `DOMAIN_SIGNAL_MAPPING` in [othi.py](backend/app/engine/othi.py).
 2. **Step 2: Lifecycle & State Recovery (FIX-2 & FIX-4)**  
    - Add trip unlatching logic in `OTHIEngine` when breaker recloses and resolution is recorded.
-   - Support `action: "RESOLVE"` in `get_active_dismissals()` in [feedback.py](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/feedback.py) and implement auto-clearing of inactive recommendations in [maintenance.py](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/maintenance.py).
+   - Support `action: "RESOLVE"` in `get_active_dismissals()` in [feedback.py](backend/app/engine/feedback.py) and implement auto-clearing of inactive recommendations in [maintenance.py](backend/app/engine/maintenance.py).
 3. **Step 3: Decouple Physical Limits from Software Qualification (FIX-3)**  
-   - Split `MNT-THERM-002` evaluation in [maintenance.py](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/maintenance.py) so physical limit exceedances trigger advisories unconditionally.
+   - Split `MNT-THERM-002` evaluation in [maintenance.py](backend/app/engine/maintenance.py) so physical limit exceedances trigger advisories unconditionally.
 4. **Step 4: Calibration & Plausibility Threshold Refinement (FIX-6, FIX-7, FIX-8)**  
-   - Bind `v_nominal_v` from `AssetProfile` in [anomaly_detectors.py](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/backend/app/engine/anomaly_detectors.py).
+   - Bind `v_nominal_v` from `AssetProfile` in [anomaly_detectors.py](backend/app/engine/anomaly_detectors.py).
    - Add resolution floor check to sensor flatline detector and absolute step threshold to rate-of-change detector.
 5. **Step 5: End-to-End Verification**  
    - Run complete test suite: `pytest backend/tests/` (verifying 462+ passing tests).

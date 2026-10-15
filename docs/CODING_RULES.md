@@ -2,8 +2,8 @@
 
 **Project:** POWERNext-AI Hackathon 2026 — Track 2: Digital Twin for Distribution Transformer Health Monitoring  
 **Team:** SKY HIGH  
-**Companion Document:** [`docs/PRINCIPLES.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/PRINCIPLES.md)  
-**Governance Hierarchy:** [`docs/FINAL_ARCHITECTURE_DECISIONS.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/FINAL_ARCHITECTURE_DECISIONS.md) $\rightarrow$ [`docs/SRS.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/SRS.md) $\rightarrow$ [`docs/MVP.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/MVP.md) $\rightarrow$ [`docs/IMPLEMENTATION_PLAN.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/IMPLEMENTATION_PLAN.md)
+**Companion Document:** [`docs/PRINCIPLES.md`](PRINCIPLES.md)  
+**Governance Hierarchy:** [`docs/FINAL_ARCHITECTURE_DECISIONS.md`](FINAL_ARCHITECTURE_DECISIONS.md) $\rightarrow$ [`docs/SRS.md`](SRS.md) $\rightarrow$ [`docs/MVP.md`](MVP.md) $\rightarrow$ [`docs/IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md)
 
 This document establishes the practical, operational rules that all implementation agents and human developers must follow when writing code, configuring tools, running tests, or performing workspace operations.
 

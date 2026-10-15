@@ -12,7 +12,7 @@
 > - **Phase 6:** Independent Holdout TEST Evaluation & Controlled Trial (**PASS**, DT-01 Promoted; DT-02..04 Gated)
 > - **Phase 7:** Multi-Dataset Cutover & Fallback Mechanism (**PASS**, bidirectional rollback verified)
 > - **Phase 8:** Frontend/Backend Integration & Telemetry Honesty (**PASS**, 81/81 targeted tests, Docker e2e)  
-> For the complete chronological log with verified SHA-256 hashes, consult [`docs/execution/GRIDPULSE_EXECUTION_LOG.md`](file:///c:/1st%20year%20learning%20programs/CPRI/Transformer_Digital_Twin/docs/execution/GRIDPULSE_EXECUTION_LOG.md).
+> For the complete chronological log with verified SHA-256 hashes, consult [`docs/execution/GRIDPULSE_EXECUTION_LOG.md`](docs/execution/GRIDPULSE_EXECUTION_LOG.md).
 
 **Purpose:** Single source of execution order for PR integration, backend stabilization, candidate dataset adaptation, domain enhancements, model qualification, frontend/backend integration, and final verification.
 
