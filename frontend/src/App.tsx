@@ -11,6 +11,7 @@ import { Transformer3DView } from './components/views/Transformer3DView';
 import { HistoricalPerformanceView } from './components/views/HistoricalPerformanceView';
 import { FeedbackModal } from './components/FeedbackModal';
 import { ModelCardModal } from './components/ModelCardModal';
+import { PanelLeftOpen } from 'lucide-react';
 
 import {
   TwinState,
@@ -32,6 +33,28 @@ export default function App(): React.ReactElement {
   const selectedDataset = getAssetContext(assetId).datasetId;
   const [isBackendHealthy, setIsBackendHealthy] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('overview');
+
+  // Desktop sidebar collapse state (persisted to localStorage)
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('gridpulse_sidebar_open');
+      return stored !== null ? stored === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const handleToggleSidebar = () => {
+    setIsSidebarOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('gridpulse_sidebar_open', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   // Digital Twin Lifecycle & Playback State
   const [isTwinStarted, setIsTwinStarted] = useState<boolean>(false);
@@ -747,6 +770,19 @@ export default function App(): React.ReactElement {
         </div>
       )}
 
+      {/* Floating Reopen Sidebar Button for desktop when collapsed */}
+      {!isSidebarOpen && (
+        <button
+          onClick={handleToggleSidebar}
+          title="Open navigation sidebar"
+          id="btn-open-sidebar"
+          className="hidden lg:flex fixed top-3 left-3 z-50 h-8 px-2.5 rounded-lg bg-surface/95 backdrop-blur border border-line shadow-md items-center gap-2 text-ink hover:text-accent hover:border-accent/40 transition-all font-medium text-[12px] group"
+        >
+          <PanelLeftOpen className="w-4 h-4 text-accent group-hover:scale-105 transition-transform" />
+          <span>Open Sidebar</span>
+        </button>
+      )}
+
       {/* Top Application Navbar */}
       <Navbar
         isBackendHealthy={isBackendHealthy}
@@ -757,11 +793,13 @@ export default function App(): React.ReactElement {
         theme={theme}
         onToggleTheme={toggleTheme}
         siteLabel={getAssetContext(assetId).siteLabel}
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={handleToggleSidebar}
       />
 
-      <div className="lg:pl-60 min-h-screen flex flex-col">
+      <div className={`${isSidebarOpen ? 'lg:pl-60' : 'lg:pl-0'} min-h-screen flex flex-col transition-[padding] duration-300 ease-in-out`}>
       {/* Main Container */}
-      <main className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-10 w-full flex-grow pt-6 lg:pt-8 pb-12">
+      <main className={`${activeTab === 'twin-3d' ? 'max-w-[1380px]' : 'max-w-[1320px]'} mx-auto px-4 sm:px-6 lg:px-8 w-full flex-grow pt-4 lg:pt-6 pb-12 transition-all duration-200`}>
         {/* Simplified Digital Twin Workflow & Replay Bar */}
         <ReplayBar
           selectedDataset={selectedDataset}
@@ -779,6 +817,8 @@ export default function App(): React.ReactElement {
           onSpeedChange={handleSpeedChange}
           onReset={handleReset}
           isBackendHealthy={isBackendHealthy}
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={handleToggleSidebar}
         />
 
         {/* View 1: Overview */}

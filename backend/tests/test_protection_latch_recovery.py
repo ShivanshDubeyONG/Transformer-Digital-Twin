@@ -277,7 +277,8 @@ def _health(c: TestClient, asset: str = API_ASSET) -> dict:
 
 
 def _watermark(c: TestClient, asset: str = API_ASSET) -> datetime:
-    return datetime.fromisoformat(c.get(f"/v1/assets/{asset}/state").json()["twin_state"]["event_time_watermark_utc"])
+    raw_ts = c.get(f"/v1/assets/{asset}/state").json()["twin_state"]["event_time_watermark_utc"]
+    return datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
 
 
 def _ui_trip(t: datetime, asset: str = API_ASSET) -> dict:

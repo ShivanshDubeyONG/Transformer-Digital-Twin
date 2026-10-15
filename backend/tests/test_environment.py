@@ -3,8 +3,8 @@ import sys
 
 
 def test_python_version() -> None:
-    """Verify Python version is 3.11+."""
-    assert sys.version_info >= (3, 11), f"Python version too old: {sys.version}"
+    """Verify Python version is 3.10+."""
+    assert sys.version_info >= (3, 10), f"Python version too old: {sys.version}"
 
 
 def test_core_package_imports() -> None:

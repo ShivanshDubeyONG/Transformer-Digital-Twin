@@ -753,8 +753,57 @@ class OTHIEngine:
         else:
             is_gated = False
             gate_reason = None
-            final_othi = raw_score
-            final_status = raw_status
+
+            # Distinguish slower-moving condition score from instantaneous operating stress:
+            baseline_score = self.last_valid_othi_score
+            has_active_degraded_episode = False
+            if open_episodes:
+                has_active_degraded_episode = any(
+                    ep.state in (EpisodeState.CRITICAL, EpisodeState.WARNING)
+                    for ep in open_episodes
+                )
+
+            if baseline_score is None:
+                # Cold-start initialization without prior baseline
+                final_othi = raw_score
+                final_status = raw_status
+                self.degradation_candidate_start_time = None
+                self.degradation_candidate_score = None
+            elif raw_score < baseline_score:
+                # Operating stress / degradation below existing condition baseline
+                if has_active_degraded_episode:
+                    # Confirmed sustained by active episode engine
+                    final_othi = raw_score
+                    final_status = raw_status
+                    self.degradation_candidate_start_time = None
+                    self.degradation_candidate_score = None
+                else:
+                    # Evaluate temporal persistence across event time
+                    if self.degradation_candidate_start_time is None:
+                        self.degradation_candidate_start_time = current_time
+                        self.degradation_candidate_score = raw_score
+
+                    elapsed = (current_time - self.degradation_candidate_start_time).total_seconds()
+                    if elapsed >= self.persistence_seconds:
+                        # Degradation sustained across persistence window
+                        final_othi = raw_score
+                        final_status = raw_status
+                    else:
+                        # Transient operating stress / isolated 1-frame excursion:
+                        # Preserve condition health score while exposing instantaneous stress in raw_othi
+                        final_othi = baseline_score
+                        final_status = self.last_valid_status or raw_status
+            else:
+                # raw_score >= baseline_score (healthy or recovering)
+                self.degradation_candidate_start_time = None
+                self.degradation_candidate_score = None
+                if has_active_degraded_episode:
+                    # Cannot recover condition score while active degraded episode remains open
+                    final_othi = baseline_score
+                    final_status = self.last_valid_status or raw_status
+                else:
+                    final_othi = raw_score
+                    final_status = raw_status
 
         # 8. Operational Status Band via Episode Persistence & Anti-Uplift
         operational_status = self._evaluate_operational_status(

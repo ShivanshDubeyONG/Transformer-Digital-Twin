@@ -34,7 +34,8 @@ export const AnomalyTimelineView: React.FC<AnomalyTimelineViewProps> = ({
   const [showDetectorMath, setShowDetectorMath] = useState<boolean>(false);
   const isCusumQualified = getAssetContext(assetId).promotionStatus === 'PROMOTED';
 
-  // API and fetch lifecycle states
+  // Continuous streaming episode store across replay (prevents inefficient 500ms HTTP polling)
+  const [streamedEpisodesMap, setStreamedEpisodesMap] = useState<Map<string, AnomalyEpisode>>(new Map());
   const [remoteEpisodes, setRemoteEpisodes] = useState<AnomalyEpisode[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -65,20 +66,58 @@ export const AnomalyTimelineView: React.FC<AnomalyTimelineViewProps> = ({
     }
   }, [assetId]);
 
+  // Initial load only when assetId changes (or manual sync) — NOT on every single replay frame tick!
   useEffect(() => {
+    setStreamedEpisodesMap(new Map());
+    setRemoteEpisodes(null);
     fetchEpisodes();
-  }, [fetchEpisodes, twinState?.state_sequence, twinState?.last_processed_event_id]);
+  }, [assetId, fetchEpisodes]);
 
-  // Merge episodes from twinState/FactBundle prop with remote API episodes (deduplicate by episode_id)
+  // Continuous accumulation: stream live episode states from twinState / FactBundle with zero network overhead
+  useEffect(() => {
+    const liveItems = (propEpisodes && propEpisodes.length > 0)
+      ? propEpisodes
+      : (twinState?.open_episodes && twinState.open_episodes.length > 0)
+        ? twinState.open_episodes
+        : null;
+
+    if (!liveItems || liveItems.length === 0) return;
+
+    setStreamedEpisodesMap((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const ep of liveItems) {
+        if (!ep || !ep.episode_id) continue;
+        const existing = next.get(ep.episode_id);
+        if (
+          !existing ||
+          existing.state !== ep.state ||
+          existing.last_seen_time_utc !== ep.last_seen_time_utc ||
+          existing.severity_score !== ep.severity_score ||
+          existing.evidence_ids?.length !== ep.evidence_ids?.length
+        ) {
+          next.set(ep.episode_id, { ...(existing || {}), ...ep });
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [propEpisodes, twinState?.open_episodes]);
+
+  // Merge remote stored episodes with continuously streamed live episodes
   const allEpisodes = useMemo(() => {
     const map = new Map<string, AnomalyEpisode>();
-    // Add remote first
+    // 1. Initial / remote episodes from backend
     if (remoteEpisodes && Array.isArray(remoteEpisodes)) {
       for (const ep of remoteEpisodes) {
         if (ep && ep.episode_id) map.set(ep.episode_id, ep);
       }
     }
-    // Add props (authoritative point-in-time FactBundle)
+    // 2. Continuously accumulated live episodes from replay
+    for (const [id, ep] of streamedEpisodesMap.entries()) {
+      map.set(id, ep);
+    }
+    // 3. Props episodes (current point in time)
     if (propEpisodes && Array.isArray(propEpisodes)) {
       for (const ep of propEpisodes) {
         if (ep && ep.episode_id) map.set(ep.episode_id, ep);
@@ -91,7 +130,7 @@ export const AnomalyTimelineView: React.FC<AnomalyTimelineViewProps> = ({
       const timeB = new Date(b.last_seen_time_utc || b.start_time_utc || 0).getTime();
       return timeB - timeA;
     });
-  }, [remoteEpisodes, propEpisodes]);
+  }, [remoteEpisodes, streamedEpisodesMap, propEpisodes]);
 
   // Derived counts across all episodes
   const critCount = allEpisodes.filter((e) => String(e.state).toUpperCase() === 'CRITICAL').length;
@@ -141,6 +180,11 @@ export const AnomalyTimelineView: React.FC<AnomalyTimelineViewProps> = ({
             <span className="eyebrow">Diagnostic Evidence</span>
             <span className="text-faint">·</span>
             <span className="eyebrow">8 Anomaly Detector Families</span>
+            <span className="text-faint">·</span>
+            <span className="chip chip-ok text-[10.5px] font-medium flex items-center gap-1.5 py-0.5">
+              <span className="dot w-1.5 h-1.5 bg-ok animate-pulse" />
+              Continuous Live Stream
+            </span>
           </div>
           <h1 className="page-title">Anomalies &amp; Evidence</h1>
           <p className="text-[13px] text-muted mt-2.5 max-w-2xl">
@@ -153,10 +197,10 @@ export const AnomalyTimelineView: React.FC<AnomalyTimelineViewProps> = ({
             onClick={fetchEpisodes}
             disabled={isLoading}
             className="btn btn-ghost"
-            title="Refresh anomaly episodes from backend"
+            title="Manual sync from backend episode database"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-accent' : ''}`} />
-            <span>Refresh</span>
+            <span>{isLoading ? 'Syncing...' : 'Sync Episodes'}</span>
           </button>
           <button
             onClick={onSeedTripData}

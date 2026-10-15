@@ -203,6 +203,16 @@ class ThermalFallbackGate:
         if artifact.parameters is None or artifact.promotion.status == "UNCALIBRATED":
             is_promoted = False
             qualification = None
+        elif is_model_promoted_override is False:
+            qualification = ThermalModelQualification(
+                parameter_interpretability=QualificationStatus.UNVERIFIED,
+                forecast_qualification=QualificationStatus.NOT_QUALIFIED,
+                scenario_qualification=QualificationStatus.NOT_QUALIFIED,
+                residual_display_qualification=QualificationStatus.NOT_QUALIFIED,
+                residual_anomaly_qualification=QualificationStatus.NOT_QUALIFIED,
+                cusum_qualification=QualificationStatus.DISABLED,
+                maintenance_inference_qualification=QualificationStatus.DISABLED,
+            )
         elif not is_promoted:
             # An unpromoted model must not emit qualified operational anomaly evidence
             # solely because its artifact carries qualification flags

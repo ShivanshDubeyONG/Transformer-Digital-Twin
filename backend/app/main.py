@@ -137,6 +137,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         app.state.app_state = app_state
 
+        if settings.environment != "test":
+            from app.api.routers.replay import ensure_dataset_loaded
+            ensure_dataset_loaded(storage, replay_engine, settings.default_asset_id)
+
     yield
 
     if app_state and app_state.storage:

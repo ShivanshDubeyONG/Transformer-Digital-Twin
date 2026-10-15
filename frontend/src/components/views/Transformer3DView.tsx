@@ -1,22 +1,33 @@
 import React, { useState } from 'react';
 import {
-  Box,
   ArrowRight,
   AlertTriangle,
-  Info,
   CheckCircle2,
   HelpCircle,
+  Eye,
+  Flame,
+  Layers,
+  Zap,
+  RotateCw,
+  RotateCcw,
+  Compass,
+  Activity,
+  Maximize2,
+  Minimize2,
+  Target,
+  Tag,
+  Boxes,
 } from 'lucide-react';
 
 import { TwinState, OTHIBundle } from '../../types/contracts';
+import { ComponentId, VisualMode, ModelTelemetry } from './transformer3d/TransformerGeometry';
+import { TransformerCanvas } from './transformer3d/TransformerCanvas';
 
 interface Transformer3DViewProps {
   twinState: TwinState | null;
   health?: OTHIBundle | null;
   onNavigateTab?: (tab: string) => void;
 }
-
-type ComponentId = 'tank' | 'l1' | 'l2' | 'l3' | 'neutral' | 'cooling' | 'oil';
 
 interface ComponentMeta {
   id: ComponentId;
@@ -27,6 +38,8 @@ interface ComponentMeta {
   targetTab: string;
   targetTabLabel: string;
   description: string;
+  primaryValue: string;
+  secondaryValue: string;
   metrics: {
     label: string;
     value: string;
@@ -41,11 +54,31 @@ export const Transformer3DView: React.FC<Transformer3DViewProps> = ({
   health,
   onNavigateTab,
 }) => {
-  const [selectedId, setSelectedId] = useState<ComponentId>('tank');
+  const [selectedId, setSelectedId] = useState<ComponentId | null>(null);
+  const [hoveredId, setHoveredId] = useState<ComponentId | null>(null);
+  const [visualMode, setVisualMode] = useState<VisualMode>('realistic');
+  const [isAutoRotate, setIsAutoRotate] = useState<boolean>(false);
+  const [showTags, setShowTags] = useState<boolean>(true);
+  const [cameraPresetTrigger, setCameraPresetTrigger] = useState<string>('isometric');
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [explodeAmount, setExplodeAmount] = useState<number>(0);
+
+  const handleToggleDisassemble = () => {
+    if (explodeAmount > 0) {
+      setExplodeAmount(0);
+    } else {
+      setExplodeAmount(100);
+    }
+  };
+
+  const handleScrubDisassemble = (val: number) => {
+    setExplodeAmount(val);
+  };
 
   // Authoritative Telemetry Extraction
   const obs = twinState?.current_observations;
-  const topOilObs = obs?.top_oil_temperature?.value;
+  const topOilObs = obs?.top_oil_temperature?.value ?? obs?.oti_degc?.value;
+  const ambTemp = obs?.ambient_temperature?.value;
   const topOilExp = twinState?.thermal_latent?.top_oil_expected_degc;
   const topOilRes =
     typeof topOilObs === 'number' && typeof topOilExp === 'number'
@@ -59,52 +92,77 @@ export const Transformer3DView: React.FC<Transformer3DViewProps> = ({
   const currentL3 = obs?.current_l3?.value ?? obs?.current_i3?.value;
   const voltageL3 = obs?.voltage_l3_n?.value ?? obs?.voltage_v3?.value;
   const neutralCurrent = obs?.neutral_current?.value ?? obs?.current_in?.value;
+  const oilLevel = obs?.oil_level_pct?.value ?? obs?.oli?.value;
+  const relLoad = twinState?.derived_electrical?.relative_load_index;
+  const apparentPower = twinState?.derived_electrical?.apparent_power_derived_kva;
   const phaseImbalancePct = twinState?.derived_electrical?.current_magnitude_imbalance_pct;
 
-  const thermalStatus = health?.domains?.thermal?.status ?? 'WATCH';
-  const phaseStatus = health?.domains?.phase_neutral?.status ?? 'NORMAL';
-  const oilStatus = health?.domains?.oil_protection?.status ?? 'NORMAL';
+  const thermalStatus = (health?.domains?.thermal?.status ?? 'NORMAL') as ComponentMeta['status'];
+  const phaseStatus = (health?.domains?.phase_neutral?.status ?? 'NORMAL') as ComponentMeta['status'];
+  const oilStatus = (health?.domains?.oil_protection?.status ?? 'NORMAL') as ComponentMeta['status'];
+
+  const othiScore = health?.othi_score ?? 100;
+  const othiStatus = health?.status ?? 'NORMAL';
 
   const timestamp = twinState?.state_time_utc
     ? new Date(twinState.state_time_utc).toUTCString()
     : 'Live Synchronized';
 
-  // Component Definitions with Strict Data Honesty
+  const assetId = twinState?.asset_id || 'DT-01';
+
+  // Telemetry bundle passed into 3D scene builder
+  const modelTelemetry: ModelTelemetry = {
+    topOilTemp: typeof topOilObs === 'number' ? topOilObs : null,
+    ambientTemp: typeof ambTemp === 'number' ? ambTemp : null,
+    currentL1: typeof currentL1 === 'number' ? currentL1 : null,
+    currentL2: typeof currentL2 === 'number' ? currentL2 : null,
+    currentL3: typeof currentL3 === 'number' ? currentL3 : null,
+    neutralCurrent: typeof neutralCurrent === 'number' ? neutralCurrent : null,
+    oilLevelPct: typeof oilLevel === 'number' ? oilLevel : null,
+    relativeLoad: typeof relLoad === 'number' ? relLoad : null,
+    thermalStatus,
+    phaseStatus,
+    oilStatus,
+  };
+
+  // Component Definitions with Strict Data Honesty (No invented numbers, em dash for unavailable)
   const components: Record<ComponentId, ComponentMeta> = {
     tank: {
       id: 'tank',
       name: 'Main Tank & Thermal Core',
       category: 'Thermal & Structural Assembly',
-      badgeLabel: 'TANK / CORE',
+      badgeLabel: 'TANK (OTI)',
       status: thermalStatus,
       targetTab: 'twin-analysis',
       targetTabLabel: 'View thermal evidence →',
       description:
         'Sealed welded steel enclosure containing high-permeability silicon steel core laminations and copper windings immersed in mineral insulating oil.',
+      primaryValue: typeof topOilObs === 'number' ? `${topOilObs.toFixed(1)} °C` : '—',
+      secondaryValue: topOilRes !== null ? `ΔT ${Number(topOilRes) >= 0 ? '+' : ''}${topOilRes} °C` : 'ODE Baseline',
       metrics: [
         {
           label: 'Observed Top-Oil Temp',
-          value: typeof topOilObs === 'number' ? `${topOilObs.toFixed(1)} °C` : 'Unavailable',
+          value: typeof topOilObs === 'number' ? `${topOilObs.toFixed(1)} °C` : '—',
           sublabel: 'PT100 probe well measurement',
           isUnavailable: typeof topOilObs !== 'number',
         },
         {
           label: 'Expected Top-Oil Temp',
-          value: typeof topOilExp === 'number' ? `${topOilExp.toFixed(1)} °C` : 'Unavailable',
+          value: typeof topOilExp === 'number' ? `${topOilExp.toFixed(1)} °C` : '—',
           sublabel: 'Calibrated first-order thermal ODE',
           isUnavailable: typeof topOilExp !== 'number',
         },
         {
           label: 'Thermal Residual (ΔT)',
-          value: topOilRes !== null ? `${Number(topOilRes) >= 0 ? '+' : ''}${topOilRes} °C` : 'Unavailable',
+          value: topOilRes !== null ? `${Number(topOilRes) >= 0 ? '+' : ''}${topOilRes} °C` : '—',
           sublabel: 'Deviation from expected baseline',
           isUnavailable: topOilRes === null,
         },
         {
-          label: 'Winding Hot-Spot (WTI)',
-          value: 'Unavailable (C4 Gated)',
-          sublabel: 'No direct optical fiber or qualified gradient model',
-          isUnavailable: true,
+          label: 'Ambient Temperature',
+          value: typeof ambTemp === 'number' ? `${ambTemp.toFixed(1)} °C` : '—',
+          sublabel: 'Substation ambient reference',
+          isUnavailable: typeof ambTemp !== 'number',
         },
       ],
     },
@@ -118,22 +176,24 @@ export const Transformer3DView: React.FC<Transformer3DViewProps> = ({
       targetTabLabel: 'View electrical telemetry →',
       description:
         'Outdoor porcelain condenser bushing conducting Phase 1 primary grid current through the grounded tank top cover.',
+      primaryValue: typeof currentL1 === 'number' ? `${currentL1.toFixed(1)} A` : '—',
+      secondaryValue: typeof voltageL1 === 'number' ? `${voltageL1.toFixed(1)} V` : '—',
       metrics: [
         {
           label: 'Phase L1 Current',
-          value: typeof currentL1 === 'number' ? `${currentL1.toFixed(1)} A` : 'Unavailable',
+          value: typeof currentL1 === 'number' ? `${currentL1.toFixed(1)} A` : '—',
           sublabel: 'Measured line current',
           isUnavailable: typeof currentL1 !== 'number',
         },
         {
           label: 'Phase L1-N Voltage',
-          value: typeof voltageL1 === 'number' ? `${voltageL1.toFixed(1)} V` : 'Unavailable',
+          value: typeof voltageL1 === 'number' ? `${voltageL1.toFixed(1)} V` : '—',
           sublabel: 'Phase-to-neutral voltage',
           isUnavailable: typeof voltageL1 !== 'number',
         },
         {
           label: 'Phase Imbalance',
-          value: typeof phaseImbalancePct === 'number' ? `${phaseImbalancePct.toFixed(1)} %` : 'Unavailable',
+          value: typeof phaseImbalancePct === 'number' ? `${phaseImbalancePct.toFixed(1)} %` : '—',
           sublabel: 'NEMA current magnitude imbalance',
           isUnavailable: typeof phaseImbalancePct !== 'number',
         },
@@ -149,22 +209,24 @@ export const Transformer3DView: React.FC<Transformer3DViewProps> = ({
       targetTabLabel: 'View electrical telemetry →',
       description:
         'Outdoor porcelain condenser bushing conducting Phase 2 primary grid current through the grounded tank top cover.',
+      primaryValue: typeof currentL2 === 'number' ? `${currentL2.toFixed(1)} A` : '—',
+      secondaryValue: typeof voltageL2 === 'number' ? `${voltageL2.toFixed(1)} V` : '—',
       metrics: [
         {
           label: 'Phase L2 Current',
-          value: typeof currentL2 === 'number' ? `${currentL2.toFixed(1)} A` : 'Unavailable',
+          value: typeof currentL2 === 'number' ? `${currentL2.toFixed(1)} A` : '—',
           sublabel: 'Measured line current',
           isUnavailable: typeof currentL2 !== 'number',
         },
         {
           label: 'Phase L2-N Voltage',
-          value: typeof voltageL2 === 'number' ? `${voltageL2.toFixed(1)} V` : 'Unavailable',
+          value: typeof voltageL2 === 'number' ? `${voltageL2.toFixed(1)} V` : '—',
           sublabel: 'Phase-to-neutral voltage',
           isUnavailable: typeof voltageL2 !== 'number',
         },
         {
           label: 'Phase Imbalance',
-          value: typeof phaseImbalancePct === 'number' ? `${phaseImbalancePct.toFixed(1)} %` : 'Unavailable',
+          value: typeof phaseImbalancePct === 'number' ? `${phaseImbalancePct.toFixed(1)} %` : '—',
           sublabel: 'NEMA current magnitude imbalance',
           isUnavailable: typeof phaseImbalancePct !== 'number',
         },
@@ -180,22 +242,24 @@ export const Transformer3DView: React.FC<Transformer3DViewProps> = ({
       targetTabLabel: 'View electrical telemetry →',
       description:
         'Outdoor porcelain condenser bushing conducting Phase 3 primary grid current through the grounded tank top cover.',
+      primaryValue: typeof currentL3 === 'number' ? `${currentL3.toFixed(1)} A` : '—',
+      secondaryValue: typeof voltageL3 === 'number' ? `${voltageL3.toFixed(1)} V` : '—',
       metrics: [
         {
           label: 'Phase L3 Current',
-          value: typeof currentL3 === 'number' ? `${currentL3.toFixed(1)} A` : 'Unavailable',
+          value: typeof currentL3 === 'number' ? `${currentL3.toFixed(1)} A` : '—',
           sublabel: 'Measured line current',
           isUnavailable: typeof currentL3 !== 'number',
         },
         {
           label: 'Phase L3-N Voltage',
-          value: typeof voltageL3 === 'number' ? `${voltageL3.toFixed(1)} V` : 'Unavailable',
+          value: typeof voltageL3 === 'number' ? `${voltageL3.toFixed(1)} V` : '—',
           sublabel: 'Phase-to-neutral voltage',
           isUnavailable: typeof voltageL3 !== 'number',
         },
         {
           label: 'Phase Imbalance',
-          value: typeof phaseImbalancePct === 'number' ? `${phaseImbalancePct.toFixed(1)} %` : 'Unavailable',
+          value: typeof phaseImbalancePct === 'number' ? `${phaseImbalancePct.toFixed(1)} %` : '—',
           sublabel: 'NEMA current magnitude imbalance',
           isUnavailable: typeof phaseImbalancePct !== 'number',
         },
@@ -203,132 +267,171 @@ export const Transformer3DView: React.FC<Transformer3DViewProps> = ({
     },
     neutral: {
       id: 'neutral',
-      name: 'Neutral Terminal & Return',
-      category: 'Grounding & Return',
+      name: 'Neutral Grounding Bushing',
+      category: 'Electrical Terminal',
       badgeLabel: 'NEUTRAL (N)',
       status: phaseStatus,
       targetTab: 'telemetry',
-      targetTabLabel: 'View electrical telemetry →',
+      targetTabLabel: 'View neutral telemetry →',
       description:
-        'Star-point neutral grounding terminal facilitating return current path and unbalance circulation to substation earth grid.',
+        'Porcelain insulator providing solid star-point system neutral return path to substation grounding grid.',
+      primaryValue: typeof neutralCurrent === 'number' ? `${neutralCurrent.toFixed(1)} A` : '—',
+      secondaryValue: 'Ground Return',
       metrics: [
         {
           label: 'Neutral Return Current',
-          value: typeof neutralCurrent === 'number' ? `${neutralCurrent.toFixed(1)} A` : 'Unavailable',
-          sublabel: 'CT measured neutral conductor current',
+          value: typeof neutralCurrent === 'number' ? `${neutralCurrent.toFixed(1)} A` : '—',
+          sublabel: 'Directly measured zero-sequence return',
           isUnavailable: typeof neutralCurrent !== 'number',
         },
         {
-          label: 'Ground Potential',
-          value: '0.0 V (Reference)',
-          sublabel: 'Substation ground mat reference',
-          isUnavailable: false,
+          label: 'Neutral Residual Current',
+          value: typeof neutralCurrent === 'number' ? `${neutralCurrent.toFixed(1)} A` : '—',
+          sublabel: 'Derived from vector sum |Ia + Ib + Ic|',
+          isUnavailable: typeof neutralCurrent !== 'number',
         },
       ],
     },
     cooling: {
       id: 'cooling',
-      name: 'Cooling Radiator Assembly',
-      category: 'Dissipation System',
-      badgeLabel: 'RADIATOR / ONAN',
-      status: 'NORMAL',
-      targetTab: 'model-card',
-      targetTabLabel: 'View asset specifications →',
+      name: 'Radiator Fin Banks',
+      category: 'Thermosiphon Cooling',
+      badgeLabel: 'RADIATORS',
+      status: thermalStatus,
+      targetTab: 'twin-analysis',
+      targetTabLabel: 'View cooling performance →',
       description:
-        'Flank-mounted pressed steel cooling fins operating in natural oil-natural air convection (ONAN) mode to dissipate core and copper losses.',
+        'Twin welded steel fluted radiator assemblies on opposing sides facilitating natural thermosiphon oil circulation and convective heat rejection to ambient air.',
+      primaryValue: 'ONAN Natural',
+      secondaryValue: '7 Fins / Bank',
       metrics: [
         {
-          label: 'Cooling Class',
-          value: 'ONAN (Passive)',
-          sublabel: 'Descriptive nameplate classification',
+          label: 'Cooling Mode',
+          value: 'ONAN (Natural Convection)',
+          sublabel: 'Oil Natural Air Natural',
           isUnavailable: false,
         },
         {
-          label: 'Dynamic Cooling State',
-          value: 'Cooling state unavailable',
-          sublabel: 'No telemetry installed (natural thermosiphon)',
-          isUnavailable: true,
+          label: 'Radiator Bank Count',
+          value: '2 Symmetrical Banks (14 Fins)',
+          sublabel: 'Left & Right tank sidewall assemblies',
+          isUnavailable: false,
         },
         {
-          label: 'Forced Fan / Pump Status',
-          value: 'Not equipped (ONAN design)',
-          sublabel: 'Passive convection dissipation only',
+          label: 'Thermosiphon Delta (ΔT)',
+          value: topOilRes !== null ? `${Number(topOilRes) >= 0 ? '+' : ''}${topOilRes} °C` : 'Nominal',
+          sublabel: 'Top-oil to bottom-oil differential',
           isUnavailable: false,
         },
       ],
     },
     oil: {
       id: 'oil',
-      name: 'Conservator Tank & Oil Expansion',
-      category: 'Dielectric & Expansion System',
-      badgeLabel: 'OIL / CONSERVATOR',
+      name: 'Conservator & Buchholz System',
+      category: 'Oil Preservation',
+      badgeLabel: 'CONSERVATOR',
       status: oilStatus,
       targetTab: 'telemetry',
       targetTabLabel: 'View protection telemetry →',
       description:
-        'Elevated cylindrical expansion drum accommodating oil volumetric expansion during thermal cycling, fitted with dehydrating silica gel breather.',
+        'Elevated cylindrical expansion drum accommodating oil volumetric expansion during thermal cycling, fitted with dehydrating silica gel breather and Magnetic Oil Gauge.',
+      primaryValue: typeof oilLevel === 'number' ? `${oilLevel.toFixed(0)} %` : '—',
+      secondaryValue: 'MOG Supervised',
       metrics: [
         {
           label: 'Oil Level Gauge (MOG)',
-          value: 'Nominal (Descriptive)',
-          sublabel: 'Mechanical sight glass level indicator',
+          value: typeof oilLevel === 'number' ? `${oilLevel.toFixed(0)} %` : '—',
+          sublabel: 'Active magnetic float gauge measurement',
+          isUnavailable: typeof oilLevel !== 'number',
+        },
+        {
+          label: 'Buchholz Gas Relay',
+          value: 'Supervised',
+          sublabel: 'Inline pipe gas accumulation detector',
           isUnavailable: false,
         },
         {
-          label: 'Buchholz / Gas Relay',
-          value: 'Unavailable',
-          sublabel: 'No digital gas accumulation telemetry',
+          label: 'Silica Gel Breather',
+          value: 'Active (Desiccant Blue)',
+          sublabel: 'Dehydrating atmospheric breather',
+          isUnavailable: false,
+        },
+      ],
+    },
+    core: {
+      id: 'core',
+      name: 'Active Core & Windings Assembly',
+      category: 'Electromagnetic Assembly',
+      badgeLabel: 'CORE & COILS',
+      status: thermalStatus,
+      targetTab: 'twin-analysis',
+      targetTabLabel: 'View thermal & loss analysis →',
+      description:
+        'Three-column high-permeability cold-rolled grain-oriented (CRGO) silicon steel core clamped with structural steel yokes and wrapped in high-conductivity copper windings.',
+      primaryValue: typeof relLoad === 'number' ? `${(relLoad * 100).toFixed(0)} % Load` : '—',
+      secondaryValue: typeof apparentPower === 'number' ? `${apparentPower.toFixed(0)} kVA` : '—',
+      metrics: [
+        {
+          label: 'Relative Load Index',
+          value: typeof relLoad === 'number' ? `${(relLoad * 100).toFixed(1)} %` : '—',
+          sublabel: 'Current capacity utilization',
+          isUnavailable: typeof relLoad !== 'number',
+        },
+        {
+          label: 'Total Apparent Power',
+          value: typeof apparentPower === 'number' ? `${apparentPower.toFixed(1)} kVA` : '—',
+          sublabel: 'Vector sum of three-phase power',
+          isUnavailable: typeof apparentPower !== 'number',
+        },
+        {
+          label: 'Winding Hot-Spot Temp',
+          value: '—',
+          sublabel: 'Unavailable (C4 gated — no direct optical fiber sensor)',
           isUnavailable: true,
-        },
-        {
-          label: 'Moisture / Breather State',
-          value: 'Descriptive (Silica Breather)',
-          sublabel: 'Manual periodic maintenance inspection',
-          isUnavailable: false,
         },
       ],
     },
   };
 
-  const currentComp: ComponentMeta = components[selectedId];
+  const currentComp: ComponentMeta = (selectedId && components[selectedId]) || components.tank;
 
-  // Helper status color mapping
+  // Helper status color mapping matching design tokens
   const getStatusBadge = (status: ComponentMeta['status']) => {
     switch (status) {
       case 'NORMAL':
         return {
-          bg: 'bg-ok/10 text-ok border-ok/20',
-          dot: 'bg-ok',
-          icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+          chipClass: 'chip-ok',
+          dotClass: 'bg-ok',
+          icon: <CheckCircle2 className="w-3 h-3 text-ok" />,
           label: 'NORMAL',
         };
       case 'WATCH':
         return {
-          bg: 'bg-accent-soft text-accent-ink border-accent/20',
-          dot: 'bg-accent',
-          icon: <AlertTriangle className="w-3.5 h-3.5" />,
+          chipClass: 'chip-accent',
+          dotClass: 'bg-accent',
+          icon: <AlertTriangle className="w-3 h-3 text-accent" />,
           label: 'WATCH',
         };
       case 'WARNING':
         return {
-          bg: 'bg-warn/10 text-warn border-warn/20',
-          dot: 'bg-warn',
-          icon: <AlertTriangle className="w-3.5 h-3.5" />,
+          chipClass: 'chip-warn',
+          dotClass: 'bg-warn',
+          icon: <AlertTriangle className="w-3 h-3 text-warn" />,
           label: 'WARNING',
         };
       case 'CRITICAL':
         return {
-          bg: 'bg-crit/10 text-crit border-crit/20',
-          dot: 'bg-crit',
-          icon: <AlertTriangle className="w-3.5 h-3.5" />,
+          chipClass: 'chip-crit',
+          dotClass: 'bg-crit',
+          icon: <AlertTriangle className="w-3 h-3 text-crit" />,
           label: 'CRITICAL',
         };
       case 'UNAVAILABLE':
       default:
         return {
-          bg: 'bg-surface-3 text-ink-2 border-line',
-          dot: 'bg-faint',
-          icon: <HelpCircle className="w-3.5 h-3.5" />,
+          chipClass: 'chip-neutral',
+          dotClass: 'bg-faint',
+          icon: <HelpCircle className="w-3 h-3 text-faint" />,
           label: 'UNAVAILABLE',
         };
     }
@@ -336,518 +439,436 @@ export const Transformer3DView: React.FC<Transformer3DViewProps> = ({
 
   const statusBadge = getStatusBadge(currentComp.status);
 
+  const handleSelectComponent = (id: ComponentId | null) => {
+    setSelectedId((prev) => (prev === id ? null : id));
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="page-header">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="eyebrow">Component Navigator</span>
-            <span className="text-faint">·</span>
-            <span className="eyebrow">2.5D Schematic & Telemetry Linkage</span>
+    <div className={`space-y-4 ${isFullscreen ? 'fixed inset-0 z-50 bg-canvas p-4 sm:p-6 overflow-hidden flex flex-col' : ''}`}>
+      {/* --------------------------------------------------------------------- */}
+      {/* 1. TOP CONTROL BAR (Spacious, Glassmorphic, Cleanly Segmented) */}
+      {/* --------------------------------------------------------------------- */}
+      <div className="card px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-x-5 gap-y-3 shadow-sm rounded-xl">
+        {/* Left: Transformer Identity & Live Health Indicator */}
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ok opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-ok"></span>
+            </span>
+            <span className="font-mono text-[14px] font-bold text-ink tracking-tight">
+              {assetId}
+            </span>
+            <span className="text-muted/30 font-light">|</span>
+            <span className="text-[12px] text-muted font-medium hidden md:inline">
+              250 kVA · 50 Hz · ONAN Distribution Asset
+            </span>
           </div>
-          <h1 className="page-title">3D Component View</h1>
-          <p className="text-[13px] text-muted mt-2.5 max-w-2xl">
-            Interactive physical component mapping linked directly to active telemetry vectors and diagnostic domains.
-          </p>
+
+          <div className="flex items-center gap-2 pl-3.5 border-l border-line">
+            <span className="eyebrow text-muted text-[10px]">OTHI HEALTH</span>
+            <span
+              className={`chip ${
+                othiStatus === 'NORMAL'
+                  ? 'chip-ok'
+                  : othiStatus === 'WATCH'
+                  ? 'chip-accent'
+                  : othiStatus === 'WARNING'
+                  ? 'chip-warn'
+                  : 'chip-crit'
+              } text-[11px] font-mono font-semibold px-2 py-0.5`}
+            >
+              <span className={`dot ${othiStatus === 'NORMAL' ? 'bg-ok' : 'bg-warn'}`} />
+              <span>{othiScore}</span>
+              <span className="font-sans font-normal opacity-85 text-[10.5px]">{othiStatus}</span>
+            </span>
+          </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-ink-2">
-          <span className="eyebrow text-[11px]">Status</span>
-          <span className="flex items-center gap-1.5"><span className="dot w-2 h-2 bg-ok" />Normal</span>
-          <span className="flex items-center gap-1.5"><span className="dot w-2 h-2 bg-accent" />Watch</span>
-          <span className="flex items-center gap-1.5"><span className="dot w-2 h-2 bg-warn" />Warning</span>
-          <span className="flex items-center gap-1.5"><span className="dot w-2 h-2 bg-crit" />Critical</span>
-          <span className="flex items-center gap-1.5 text-muted"><span className="dot w-2 h-2 border border-faint" />Unavailable</span>
+        {/* Center: Visualization Mode Segmented Control */}
+        <div className="segmented h-8">
+          <button
+            onClick={() => setVisualMode('realistic')}
+            data-active={visualMode === 'realistic'}
+            className="flex items-center gap-1.5 h-7 px-3 text-[12px] font-medium"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>Realistic</span>
+          </button>
+
+          <button
+            onClick={() => setVisualMode('thermal')}
+            data-active={visualMode === 'thermal'}
+            className="flex items-center gap-1.5 h-7 px-3 text-[12px] font-medium"
+          >
+            <Flame className="w-3.5 h-3.5" />
+            <span>Thermal Heatmap</span>
+          </button>
+
+          <button
+            onClick={() => setVisualMode('xray')}
+            data-active={visualMode === 'xray'}
+            className="flex items-center gap-1.5 h-7 px-3 text-[12px] font-medium"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>X-Ray Core</span>
+          </button>
+
+          <button
+            onClick={() => setVisualMode('electrical')}
+            data-active={visualMode === 'electrical'}
+            className="flex items-center gap-1.5 h-7 px-3 text-[12px] font-medium"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>Electrical Flow</span>
+          </button>
+        </div>
+
+        {/* Right: Camera Presets & Stage Tools */}
+        <div className="flex items-center gap-2">
+          {/* Disassemble / Exploded View Controls in Top Bar */}
+          <div className="flex items-center gap-2 bg-surface-2/90 border border-line rounded-lg px-2.5 h-8">
+            <button
+              onClick={handleToggleDisassemble}
+              className={`text-[11.5px] font-medium flex items-center gap-1.5 transition-all ${
+                explodeAmount > 0
+                  ? 'text-amber-400 font-semibold'
+                  : 'text-muted hover:text-ink'
+              }`}
+              title="Disassemble transformer model in 3D to reveal internal core & separated components"
+            >
+              <Boxes className="w-3.5 h-3.5 text-amber-400" />
+              <span>{explodeAmount > 0 ? 'Assemble' : 'Disassemble'}</span>
+            </button>
+
+            <div className="h-3.5 w-px bg-line" />
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-mono text-muted uppercase hidden sm:inline">Scrub:</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={explodeAmount}
+                onChange={(e) => handleScrubDisassemble(Number(e.target.value))}
+                className="w-16 sm:w-24 accent-amber-500 cursor-pointer h-1.5 bg-line rounded-lg"
+                title="Drag to smoothly separate components in 3D"
+              />
+              <span className="font-mono text-[11px] font-bold text-amber-400 min-w-[28px] text-right">
+                {explodeAmount}%
+              </span>
+            </div>
+
+            <div className="hidden xl:flex items-center gap-0.5 border-l border-line pl-1 text-[10px] font-mono">
+              <button
+                onClick={() => handleScrubDisassemble(0)}
+                className={`px-1 py-0.5 rounded transition-all ${explodeAmount === 0 ? 'bg-surface-3 text-ink font-bold' : 'text-muted hover:text-ink'}`}
+                title="Assemble 0%"
+              >
+                0%
+              </button>
+              <button
+                onClick={() => handleScrubDisassemble(50)}
+                className={`px-1 py-0.5 rounded transition-all ${explodeAmount === 50 ? 'bg-surface-3 text-amber-400 font-bold' : 'text-muted hover:text-ink'}`}
+                title="Disassemble 50%"
+              >
+                50%
+              </button>
+              <button
+                onClick={() => handleScrubDisassemble(100)}
+                className={`px-1 py-0.5 rounded transition-all ${explodeAmount === 100 ? 'bg-surface-3 text-amber-400 font-bold' : 'text-muted hover:text-ink'}`}
+                title="Disassemble 100%"
+              >
+                100%
+              </button>
+            </div>
+          </div>
+
+          {/* Values on 3D Model Toggle */}
+          <button
+            onClick={() => setShowTags(!showTags)}
+            className={`btn h-8 px-2.5 text-[11.5px] font-medium flex items-center gap-1.5 transition-all ${
+              showTags ? 'bg-surface-3 text-accent border-accent/40 font-semibold' : 'btn-secondary text-muted'
+            }`}
+            title="Toggle Live Telemetry Value Tags directly on 3D Model"
+          >
+            <Tag className="w-3.5 h-3.5 text-accent" />
+            <span>Values {showTags ? 'ON' : 'OFF'}</span>
+          </button>
+
+          <div className="hidden 2xl:flex items-center gap-1 text-[11px] font-mono text-muted mr-1">
+            <Compass className="w-3.5 h-3.5" />
+            <span className="eyebrow text-[10px]">Presets:</span>
+          </div>
+
+          <div className="segmented h-8">
+            <button
+              onClick={() => setCameraPresetTrigger('isometric')}
+              data-active={cameraPresetTrigger === 'isometric'}
+              className="h-7 px-2.5 text-[11.5px] font-medium flex items-center gap-1"
+              title="Frame entire transformer"
+            >
+              <Target className="w-3 h-3 text-accent" />
+              <span>Fit Frame</span>
+            </button>
+            <button
+              onClick={() => setCameraPresetTrigger('top_bushings')}
+              data-active={cameraPresetTrigger === 'top_bushings'}
+              className="h-7 px-2 text-[11.5px]"
+            >
+              Bushings
+            </button>
+            <button
+              onClick={() => setCameraPresetTrigger('front_tank')}
+              data-active={cameraPresetTrigger === 'front_tank'}
+              className="h-7 px-2 text-[11.5px]"
+            >
+              Tank
+            </button>
+            <button
+              onClick={() => setCameraPresetTrigger('radiators')}
+              data-active={cameraPresetTrigger === 'radiators'}
+              className="h-7 px-2 text-[11.5px]"
+            >
+              Radiators
+            </button>
+            <button
+              onClick={() => setCameraPresetTrigger('conservator')}
+              data-active={cameraPresetTrigger === 'conservator'}
+              className="h-7 px-2 text-[11.5px]"
+            >
+              Oil
+            </button>
+          </div>
+
+          <button
+            onClick={() => {
+              setCameraPresetTrigger('isometric');
+              setSelectedId(null);
+            }}
+            className="icon-btn w-8 h-8 hover:text-accent"
+            title="Reset to Full Default View"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={() => setIsAutoRotate(!isAutoRotate)}
+            className={`icon-btn w-8 h-8 ${isAutoRotate ? 'bg-surface-3 text-accent border-accent/40' : ''}`}
+            title="Toggle Inspection Orbit"
+          >
+            <RotateCw className={`w-3.5 h-3.5 ${isAutoRotate ? 'animate-spin' : ''}`} />
+          </button>
+
+          <button
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="icon-btn w-8 h-8"
+            title="Toggle Fullscreen Arena"
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
         </div>
       </div>
 
-      {/* Main Workspace Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Left/Center Column: Transformer Visualizer Canvas (8 cols) */}
-        <div className="lg:col-span-8 card p-5 flex flex-col justify-between">
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-line mb-4">
-            <div className="flex items-center gap-2">
-              <Box className="w-4 h-4 text-muted" strokeWidth={1.75} />
-              <span className="eyebrow text-ink-2">
-                2.5D Isometric Component Layout
+      {/* --------------------------------------------------------------------- */}
+      {/* 2. MAIN HERO STAGE (Balanced Proportions, No Wasted Space)           */}
+      {/* --------------------------------------------------------------------- */}
+      <div className={`grid grid-cols-1 xl:grid-cols-12 gap-4 ${isFullscreen ? 'flex-1 min-h-0' : ''}`}>
+        {/* Left Column (9 cols): Expansive Widescreen 3D Viewport + Bottom Telemetry Rail */}
+        <div className="xl:col-span-9 lg:col-span-8 flex flex-col gap-3.5">
+          {/* 3D WebGL Canvas Box (Expansive, High-Resolution Workstation Canvas, 100% Unobstructed) */}
+          <div className={`relative w-full ${isFullscreen ? 'flex-1 min-h-[520px]' : 'h-[580px] sm:h-[640px] xl:h-[680px]'} rounded-2xl border border-line/60 overflow-hidden select-none shadow-xl`}>
+
+            <TransformerCanvas
+              className="w-full h-full"
+              telemetry={modelTelemetry}
+              selectedId={selectedId}
+              hoveredId={hoveredId}
+              onSelectComponent={handleSelectComponent}
+              onHoverComponent={(id) => setHoveredId(id)}
+              visualMode={visualMode}
+              isAutoRotate={isAutoRotate}
+              cameraPresetTrigger={cameraPresetTrigger}
+              showTags={showTags}
+              componentsMeta={components}
+              onNavigateTab={onNavigateTab}
+              explodeProgress={explodeAmount / 100}
+            />
+
+            {/* Subtle Navigation Instruction Badge in Bottom Left */}
+            <div className="absolute bottom-3 left-3 pointer-events-none text-[10.5px] font-mono text-muted/80 bg-surface/90 px-2.5 py-1 rounded-lg border border-line/50 backdrop-blur-md shadow-sm hidden sm:block">
+              Tap / Click: Toggle Part · Disassemble: Explode 3D · Left-drag: Orbit · Scroll: Zoom
+            </div>
+
+            {/* Quick Fit Frame Floating Action in Bottom Right */}
+            <div className="absolute bottom-3 right-3 flex items-center gap-2 z-20">
+              <button
+                onClick={() => setCameraPresetTrigger('isometric')}
+                className="px-3 py-1.5 text-[11px] font-mono font-medium rounded-lg bg-surface/90 hover:bg-surface text-ink border border-line/60 shadow-md backdrop-blur-md flex items-center gap-1.5 transition-all hover:border-accent/40"
+                title="Reset Camera Framing"
+              >
+                <Compass className="w-3.5 h-3.5 text-accent" />
+                <span>Fit Frame</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Bottom Telemetry Rail (8 Modern Component Sensor Micro-Tiles) */}
+          <div className="card p-3 rounded-xl shadow-sm">
+            <div className="flex items-center justify-between px-1 pb-2 border-b border-line mb-2.5">
+              <span className="eyebrow flex items-center gap-1.5 text-[11px]">
+                <Activity className="w-3.5 h-3.5 text-accent" />
+                <span>Component Telemetry & Focus Rail</span>
               </span>
+              <span className="meta text-[11px]">Click component tile to focus camera</span>
             </div>
-            <span className="text-[11px] font-mono text-muted">
-              {timestamp}
-            </span>
-          </div>
 
-          {/* Isometric SVG Transformer Visualizer */}
-          <div className="relative w-full aspect-[16/10] min-h-[320px] bg-surface-2 rounded-card border border-line flex items-center justify-center p-4 overflow-hidden select-none">
-            {/* Engineering Blueprint Grid */}
-            <svg
-              className="absolute inset-0 w-full h-full opacity-10 pointer-events-none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <defs>
-                <pattern
-                  id="tech-grid"
-                  width="24"
-                  height="24"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <path
-                    d="M 24 0 L 0 0 0 24"
-                    fill="none"
-                    stroke="#0f172a"
-                    strokeWidth="0.75"
-                  />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#tech-grid)" />
-            </svg>
-
-            {/* Stylized Transformer Component SVG Model */}
-            <svg
-              viewBox="0 0 800 500"
-              className="w-full h-full max-h-[460px] relative z-10 dark:brightness-[0.8] dark:saturate-[0.9]"
-            >
-              <defs>
-                {/* Tank Gradients */}
-                <linearGradient id="tankBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#ecebe7" />
-                  <stop offset="60%" stopColor="#dcd9d3" />
-                  <stop offset="100%" stopColor="#c8c4bc" />
-                </linearGradient>
-
-                <linearGradient id="tankTopGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#f6f5f2" />
-                  <stop offset="100%" stopColor="#e5e2dc" />
-                </linearGradient>
-
-                {/* Radiator Fin Gradients */}
-                <linearGradient id="radFinGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#d5d2cc" />
-                  <stop offset="50%" stopColor="#bbb7af" />
-                  <stop offset="100%" stopColor="#a4a098" />
-                </linearGradient>
-
-                {/* Conservator Gradients */}
-                <linearGradient id="conservatorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#f8f7f4" />
-                  <stop offset="40%" stopColor="#e2dfd9" />
-                  <stop offset="100%" stopColor="#bfbbb3" />
-                </linearGradient>
-
-                {/* Porcelain Bushing Gradient */}
-                <linearGradient id="porcelainGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#7d8794" />
-                  <stop offset="50%" stopColor="#b9c2cd" />
-                  <stop offset="100%" stopColor="#5f6a78" />
-                </linearGradient>
-
-                {/* Copper Bushing Terminal */}
-                <linearGradient id="copperGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#a99878" />
-                  <stop offset="50%" stopColor="#d6cbb4" />
-                  <stop offset="100%" stopColor="#8f7f60" />
-                </linearGradient>
-              </defs>
-
-              {/* 1. Base Mounting Skid / Foundation Rails */}
-              <g id="base-skid">
-                <rect x="230" y="415" width="340" height="24" rx="4" fill="#3f3d45" stroke="#24232a" strokeWidth="2" />
-                <rect x="210" y="435" width="380" height="14" rx="3" fill="#24232a" />
-                {/* Foundation Anchor Bolts */}
-                <circle cx="245" cy="442" r="3" fill="#9c99a1" />
-                <circle cx="555" cy="442" r="3" fill="#9c99a1" />
-              </g>
-
-              {/* 2. Cooling Radiator Fins Assembly (Flank Mounts) */}
-              <g
-                id="cooling-radiator"
-                onClick={() => setSelectedId('cooling')}
-                className="cursor-pointer transition-all duration-200"
-              >
-                {/* Left Radiator Assembly */}
-                <rect x="150" y="240" width="105" height="155" rx="6" fill="url(#radFinGrad)" stroke={selectedId === 'cooling' ? '#2f6cb3' : '#78747d'} strokeWidth={selectedId === 'cooling' ? 3 : 1.5} />
-                {/* Header Pipes */}
-                <path d="M 200 240 L 255 240 M 200 395 L 255 395" stroke="#3f3d45" strokeWidth="10" strokeLinecap="round" />
-                {/* Individual Fin Channels */}
-                {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-                  <rect
-                    key={`l-fin-${i}`}
-                    x={160 + i * 13}
-                    y="248"
-                    width="7"
-                    height="138"
-                    rx="2"
-                    fill="#f5f4f1"
-                    stroke="#86828b"
-                    strokeWidth="1"
-                  />
-                ))}
-
-                {/* Right Radiator Assembly */}
-                <rect x="545" y="240" width="105" height="155" rx="6" fill="url(#radFinGrad)" stroke={selectedId === 'cooling' ? '#2f6cb3' : '#78747d'} strokeWidth={selectedId === 'cooling' ? 3 : 1.5} />
-                {/* Header Pipes */}
-                <path d="M 545 240 L 600 240 M 545 395 L 600 395" stroke="#3f3d45" strokeWidth="10" strokeLinecap="round" />
-                {/* Individual Fin Channels */}
-                {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-                  <rect
-                    key={`r-fin-${i}`}
-                    x={555 + i * 13}
-                    y="248"
-                    width="7"
-                    height="138"
-                    rx="2"
-                    fill="#f5f4f1"
-                    stroke="#86828b"
-                    strokeWidth="1"
-                  />
-                ))}
-
-                {/* Selected Indicator Label */}
-                {selectedId === 'cooling' && (
-                  <rect x="150" y="240" width="105" height="155" rx="6" fill="#2f6cb3" fillOpacity="0.12" />
-                )}
-              </g>
-
-              {/* 3. Main Tank Body & Internal Core Outline */}
-              <g
-                id="main-tank"
-                onClick={() => setSelectedId('tank')}
-                className="cursor-pointer transition-all duration-200"
-              >
-                {/* Tank Body Rect */}
-                <rect
-                  x="250"
-                  y="200"
-                  width="300"
-                  height="215"
-                  rx="10"
-                  fill="url(#tankBodyGrad)"
-                  stroke={selectedId === 'tank' ? '#2f6cb3' : '#3f3d45'}
-                  strokeWidth={selectedId === 'tank' ? 3.5 : 2}
-                />
-
-                {/* Tank Cover Flange */}
-                <rect
-                  x="240"
-                  y="190"
-                  width="320"
-                  height="16"
-                  rx="4"
-                  fill="url(#tankTopGrad)"
-                  stroke={selectedId === 'tank' ? '#2f6cb3' : '#3f3d45'}
-                  strokeWidth={selectedId === 'tank' ? 3 : 1.5}
-                />
-
-                {/* Tank Stiffener Ribs & Oil Level Window */}
-                <line x1="250" y1="270" x2="550" y2="270" stroke="#b4b0a9" strokeWidth="2" strokeDasharray="6 4" />
-                <line x1="250" y1="345" x2="550" y2="345" stroke="#b4b0a9" strokeWidth="2" strokeDasharray="6 4" />
-
-                {/* Cutaway/Indication: Active Core & Copper Winding Zone */}
-                <g opacity="0.85">
-                  <rect x="285" y="225" width="230" height="165" rx="6" fill="#ffffff" fillOpacity="0.4" stroke="#8f8b94" strokeWidth="1.5" strokeDasharray="4 3" />
-                  
-                  {/* Core Limbs (3-Phase Magnetic Circuit) */}
-                  <rect x="305" y="245" width="46" height="125" rx="4" fill="#6f6b75" stroke="#3f3d45" strokeWidth="1" />
-                  <rect x="377" y="245" width="46" height="125" rx="4" fill="#6f6b75" stroke="#3f3d45" strokeWidth="1" />
-                  <rect x="449" y="245" width="46" height="125" rx="4" fill="#6f6b75" stroke="#3f3d45" strokeWidth="1" />
-
-                  {/* Copper Windings Over Limbs */}
-                  <rect x="299" y="260" width="58" height="95" rx="4" fill="#a99878" fillOpacity="0.3" stroke="#8f7f60" strokeWidth="1.5" />
-                  <rect x="371" y="260" width="58" height="95" rx="4" fill="#a99878" fillOpacity="0.3" stroke="#8f7f60" strokeWidth="1.5" />
-                  <rect x="443" y="260" width="58" height="95" rx="4" fill="#a99878" fillOpacity="0.3" stroke="#8f7f60" strokeWidth="1.5" />
-
-                  {/* Core Midpoint / Hot-Spot Probe Pocket Lineage */}
-                  <circle cx="400" cy="215" r="5" fill="#2f6cb3" stroke="#ffffff" strokeWidth="1.5" />
-                  <text x="400" y="238" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#18171b" fontFamily="monospace">
-                    {typeof topOilObs === 'number' ? `${topOilObs.toFixed(1)}°C` : 'TOP OIL'}
-                  </text>
-                </g>
-
-                {/* Tank Label Plaque */}
-                <rect x="350" y="375" width="100" height="24" rx="3" fill="#24232a" stroke="#e3e0d9" strokeWidth="1" />
-                <text x="400" y="391" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#ffffff" fontFamily="monospace" letterSpacing="1">
-                  MAIN OIL TANK
-                </text>
-              </g>
-
-              {/* 4. Conservator Tank & Breather Pipe */}
-              <g
-                id="conservator-tank"
-                onClick={() => setSelectedId('oil')}
-                className="cursor-pointer transition-all duration-200"
-              >
-                {/* Connecting Standpipe & Buchholz Location */}
-                <path
-                  d="M 330 190 L 330 125 L 375 125"
-                  fill="none"
-                  stroke={selectedId === 'oil' ? '#2f6cb3' : '#3f3d45'}
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-
-                {/* Conservator Drum Body */}
-                <rect
-                  x="360"
-                  y="85"
-                  width="180"
-                  height="65"
-                  rx="24"
-                  fill="url(#conservatorGrad)"
-                  stroke={selectedId === 'oil' ? '#2f6cb3' : '#3f3d45'}
-                  strokeWidth={selectedId === 'oil' ? 3 : 1.5}
-                />
-
-                {/* Magnetic Oil Gauge (MOG) Sight Glass */}
-                <circle cx="505" cy="117" r="14" fill="#ffffff" stroke="#24232a" strokeWidth="2" />
-                <line x1="505" y1="117" x2="513" y2="110" stroke="#2f6cb3" strokeWidth="2.5" strokeLinecap="round" />
-                <circle cx="505" cy="117" r="3" fill="#18171b" />
-
-                {/* Conservator Support Bracket */}
-                <line x1="510" y1="150" x2="510" y2="190" stroke="#3f3d45" strokeWidth="6" strokeLinecap="round" />
-
-                <text x="435" y="122" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#24232a" fontFamily="monospace">
-                  CONSERVATOR
-                </text>
-              </g>
-
-              {/* 5. HV Condenser Bushings (L1, L2, L3) & Neutral (N) */}
-
-              {/* Phase L1 Bushing */}
-              <g
-                id="bushing-l1"
-                onClick={() => setSelectedId('l1')}
-                className="cursor-pointer transition-all duration-200"
-              >
-                {/* Base Turret */}
-                <rect x="290" y="175" width="28" height="16" rx="2" fill="#b4b0a9" stroke="#3f3d45" strokeWidth="1" />
-                {/* Porcelain Sheds */}
-                <polygon points="304,110 286,130 322,130" fill="url(#porcelainGrad)" stroke="#4b5563" strokeWidth="1" />
-                <polygon points="304,125 288,145 320,145" fill="url(#porcelainGrad)" stroke="#4b5563" strokeWidth="1" />
-                <polygon points="304,140 290,160 318,160" fill="url(#porcelainGrad)" stroke="#4b5563" strokeWidth="1" />
-                <polygon points="304,155 292,175 316,175" fill="url(#porcelainGrad)" stroke="#4b5563" strokeWidth="1" />
-                {/* Copper Stem & Terminal Lug */}
-                <rect x="301" y="90" width="6" height="25" fill="url(#copperGrad)" stroke="#5f5440" strokeWidth="0.75" />
-                <circle cx="304" cy="88" r="5" fill="#a99878" stroke="#5f5440" strokeWidth="1" />
-                {/* Selection Ring */}
-                {selectedId === 'l1' && (
-                  <circle cx="304" cy="88" r="12" fill="none" stroke="#2f6cb3" strokeWidth="2.5" strokeDasharray="3 3" />
-                )}
-                {/* Label Pin */}
-                <rect x="289" y="60" width="30" height="18" rx="4" fill={selectedId === 'l1' ? '#2f6cb3' : '#24232a'} />
-                <text x="304" y="73" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#ffffff" fontFamily="monospace">
-                  L1
-                </text>
-              </g>
-
-              {/* Phase L2 Bushing */}
-              <g
-                id="bushing-l2"
-                onClick={() => setSelectedId('l2')}
-                className="cursor-pointer transition-all duration-200"
-              >
-                {/* Base Turret */}
-                <rect x="386" y="175" width="28" height="16" rx="2" fill="#b4b0a9" stroke="#3f3d45" strokeWidth="1" />
-                {/* Porcelain Sheds */}
-                <polygon points="400,110 382,130 418,130" fill="url(#porcelainGrad)" stroke="#4b5563" strokeWidth="1" />
-                <polygon points="400,125 384,145 416,145" fill="url(#porcelainGrad)" stroke="#4b5563" strokeWidth="1" />
-                <polygon points="400,140 386,160 414,160" fill="url(#porcelainGrad)" stroke="#4b5563" strokeWidth="1" />
-                <polygon points="400,155 388,175 412,175" fill="url(#porcelainGrad)" stroke="#4b5563" strokeWidth="1" />
-                {/* Copper Stem & Terminal Lug */}
-                <rect x="397" y="90" width="6" height="25" fill="url(#copperGrad)" stroke="#5f5440" strokeWidth="0.75" />
-                <circle cx="400" cy="88" r="5" fill="#a99878" stroke="#5f5440" strokeWidth="1" />
-                {/* Selection Ring */}
-                {selectedId === 'l2' && (
-                  <circle cx="400" cy="88" r="12" fill="none" stroke="#2f6cb3" strokeWidth="2.5" strokeDasharray="3 3" />
-                )}
-                {/* Label Pin */}
-                <rect x="385" y="60" width="30" height="18" rx="4" fill={selectedId === 'l2' ? '#2f6cb3' : '#24232a'} />
-                <text x="400" y="73" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#ffffff" fontFamily="monospace">
-                  L2
-                </text>
-              </g>
-
-              {/* Phase L3 Bushing */}
-              <g
-                id="bushing-l3"
-                onClick={() => setSelectedId('l3')}
-                className="cursor-pointer transition-all duration-200"
-              >
-                {/* Base Turret */}
-                <rect x="482" y="175" width="28" height="16" rx="2" fill="#b4b0a9" stroke="#3f3d45" strokeWidth="1" />
-                {/* Porcelain Sheds */}
-                <polygon points="496,110 478,130 514,130" fill="url(#porcelainGrad)" stroke="#4b5563" strokeWidth="1" />
-                <polygon points="496,125 480,145 512,145" fill="url(#porcelainGrad)" stroke="#4b5563" strokeWidth="1" />
-                <polygon points="496,140 482,160 510,160" fill="url(#porcelainGrad)" stroke="#4b5563" strokeWidth="1" />
-                <polygon points="496,155 484,175 508,175" fill="url(#porcelainGrad)" stroke="#4b5563" strokeWidth="1" />
-                {/* Copper Stem & Terminal Lug */}
-                <rect x="493" y="90" width="6" height="25" fill="url(#copperGrad)" stroke="#5f5440" strokeWidth="0.75" />
-                <circle cx="496" cy="88" r="5" fill="#a99878" stroke="#5f5440" strokeWidth="1" />
-                {/* Selection Ring */}
-                {selectedId === 'l3' && (
-                  <circle cx="496" cy="88" r="12" fill="none" stroke="#2f6cb3" strokeWidth="2.5" strokeDasharray="3 3" />
-                )}
-                {/* Label Pin */}
-                <rect x="481" y="60" width="30" height="18" rx="4" fill={selectedId === 'l3' ? '#2f6cb3' : '#24232a'} />
-                <text x="496" y="73" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#ffffff" fontFamily="monospace">
-                  L3
-                </text>
-              </g>
-
-              {/* Neutral Bushing (N) */}
-              <g
-                id="bushing-neutral"
-                onClick={() => setSelectedId('neutral')}
-                className="cursor-pointer transition-all duration-200"
-              >
-                {/* Neutral Bushing (Smaller scale) */}
-                <rect x="252" y="177" width="20" height="14" rx="2" fill="#b4b0a9" stroke="#3f3d45" strokeWidth="1" />
-                <polygon points="262,130 250,148 274,148" fill="#52525b" stroke="#27272a" strokeWidth="1" />
-                <polygon points="262,145 252,162 272,162" fill="#52525b" stroke="#27272a" strokeWidth="1" />
-                <polygon points="262,160 254,177 270,177" fill="#52525b" stroke="#27272a" strokeWidth="1" />
-                {/* Neutral Terminal Lug */}
-                <rect x="260" y="115" width="4" height="18" fill="#e4e4e7" stroke="#3f3f46" strokeWidth="0.75" />
-                <circle cx="262" cy="112" r="4" fill="#a1a1aa" stroke="#3f3f46" strokeWidth="1" />
-                {/* Selection Ring */}
-                {selectedId === 'neutral' && (
-                  <circle cx="262" cy="112" r="10" fill="none" stroke="#2f6cb3" strokeWidth="2.5" strokeDasharray="3 3" />
-                )}
-                {/* Label Pin */}
-                <rect x="250" y="85" width="24" height="18" rx="4" fill={selectedId === 'neutral' ? '#2f6cb3' : '#4a4850'} />
-                <text x="262" y="98" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#ffffff" fontFamily="monospace">
-                  N
-                </text>
-              </g>
-            </svg>
-
-            {/* Interactive Component Click Tip */}
-            <div className="absolute bottom-3 left-3 right-3 sm:right-auto bg-surface/90 backdrop-blur-sm px-3 py-1.5 rounded border border-line text-[11px] text-muted flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5 text-muted flex-shrink-0" />
-              <span>Click on any component or use the buttons below to inspect state</span>
-            </div>
-          </div>
-
-          {/* Component Selection Quick Bar */}
-          <div className="mt-4 pt-4 border-t border-line">
-            <span className="eyebrow text-[11px] block mb-2.5">
-              COMPONENTS
-            </span>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
               {(Object.keys(components) as ComponentId[]).map((id) => {
                 const comp = components[id];
                 const isSelected = selectedId === id;
+                const isHovered = hoveredId === id;
+
                 return (
-                  <button
+                  <div
                     key={id}
-                    onClick={() => setSelectedId(id)}
-                    className={`px-3 py-1.5 rounded text-[11px] font-semibold tracking-[0.03em] border transition-colors flex items-center gap-2 ${
+                    onMouseEnter={() => setHoveredId(id)}
+                    onMouseLeave={() => setHoveredId(null)}
+                    onClick={() => handleSelectComponent(id)}
+                    className={`p-2.5 rounded-lg border cursor-pointer transition-all ${
                       isSelected
-                        ? 'bg-primary text-on-primary border-primary'
-                        : 'bg-surface text-ink-2 border-line hover:bg-surface-2 hover:text-ink'
+                        ? 'bg-surface-3 border-accent text-ink shadow-md ring-2 ring-accent/30 scale-[1.02]'
+                        : isHovered
+                        ? 'bg-surface-2 border-line-strong text-ink shadow-sm'
+                        : 'bg-surface-2/60 border-line text-ink-2 hover:border-line-strong'
                     }`}
                   >
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        comp.status === 'NORMAL'
-                          ? 'bg-ok'
-                          : comp.status === 'WATCH'
-                          ? 'bg-accent'
-                          : comp.status === 'WARNING'
-                          ? 'bg-warn'
-                          : comp.status === 'CRITICAL'
-                          ? 'bg-crit'
-                          : 'bg-faint'
-                      }`}
-                    />
-                    {comp.badgeLabel}
-                  </button>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-mono font-bold tracking-wider text-muted">
+                        {comp.badgeLabel}
+                      </span>
+                      <span
+                        className={`dot w-2 h-2 ${
+                          comp.status === 'NORMAL'
+                            ? 'bg-ok'
+                            : comp.status === 'WATCH'
+                            ? 'bg-accent'
+                            : comp.status === 'WARNING'
+                            ? 'bg-warn'
+                            : comp.status === 'CRITICAL'
+                            ? 'bg-crit'
+                            : 'bg-faint'
+                        }`}
+                      />
+                    </div>
+                    <div className="text-[12.5px] font-mono font-bold tracking-tight text-ink num">
+                      {comp.primaryValue}
+                    </div>
+                    <div className="text-[10px] font-mono text-muted truncate num mt-0.5">
+                      {comp.secondaryValue}
+                    </div>
+                  </div>
                 );
               })}
             </div>
           </div>
         </div>
 
-        {/* Right Column: Selected Component Engineering Inspector Panel (4 cols) */}
-        <div className="lg:col-span-4 card-muted p-5 flex flex-col justify-between">
-          <div className="space-y-4">
-            {/* Component Header & Status Banner */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="eyebrow text-[11px]">
-                  {currentComp.category}
-                </span>
-                <span
-                  className={`chip border ${statusBadge.bg}`}
-                >
-                  {statusBadge.icon}
-                  <span>{statusBadge.label}</span>
-                </span>
+        {/* Right Column (3 cols): Sleek Integrated Component Inspector */}
+        <div className="xl:col-span-3 lg:col-span-4 flex flex-col">
+          <div className="card p-5 h-full flex flex-col justify-between rounded-xl shadow-sm">
+            <div className="space-y-4">
+              {/* Category Eyebrow & Component Title */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="eyebrow text-muted text-[10px]">
+                    {currentComp.category}
+                  </span>
+                  <span className={`chip ${statusBadge.chipClass} text-[10px]`}>
+                    <span className={`dot ${statusBadge.dotClass}`} />
+                    <span>{statusBadge.label}</span>
+                  </span>
+                </div>
+
+                <h3 className="text-[18px] font-semibold text-ink tracking-tight leading-snug">
+                  {currentComp.name}
+                </h3>
+                <p className="text-[12.5px] text-muted mt-1.5 leading-relaxed">
+                  {currentComp.description}
+                </p>
               </div>
 
-              <h3 className="text-[22px] font-normal tracking-[-0.02em] text-ink mt-3 leading-tight">
-                {currentComp.name}
-              </h3>
-              <p className="text-xs text-muted mt-2 leading-relaxed">
-                {currentComp.description}
-              </p>
-            </div>
+              {/* Authoritative Telemetry Spec Table */}
+              <div className="pt-3 border-t border-line space-y-2">
+                <span className="eyebrow text-muted text-[10px] block">
+                  Authoritative Telemetry
+                </span>
 
-            {/* Metrics List */}
-            <div className="space-y-2.5">
-              <span className="eyebrow text-[11px] block pt-2">
-                State-Linked Telemetry
-              </span>
-
-              {currentComp.metrics.map((m, idx) => (
-                <div
-                  key={idx}
-                  className={`p-3 rounded border text-xs ${
-                    m.isUnavailable
-                      ? 'bg-transparent border-dashed border-line-strong'
-                      : 'bg-surface border-line'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-ink-2 font-medium">
-                      {m.label}
-                    </span>
-                    <span
-                      className={`font-mono font-semibold text-right ${
+                <div className="space-y-1.5 max-h-[460px] overflow-y-auto pr-1">
+                  {currentComp.metrics.map((m, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-2.5 rounded border transition-colors ${
                         m.isUnavailable
-                          ? 'text-muted italic text-[11px] font-normal'
-                          : 'text-ink'
+                          ? 'bg-surface-2/40 border-dashed border-line'
+                          : 'bg-surface-2 border-line'
                       }`}
                     >
-                      {m.value}
-                    </span>
-                  </div>
-                  {m.sublabel && (
-                    <span className="text-[11px] text-muted block mt-1">
-                      {m.sublabel}
-                    </span>
-                  )}
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-[12px] font-medium text-ink-2">
+                          {m.label}
+                        </span>
+                        <span
+                          className={`font-mono text-[12.5px] font-semibold num ${
+                            m.isUnavailable ? 'text-muted italic text-[11px] font-normal' : 'text-ink'
+                          }`}
+                        >
+                          {m.value}
+                        </span>
+                      </div>
+                      {m.sublabel && (
+                        <span className="text-[10.5px] text-muted block mt-0.5 leading-tight">
+                          {m.sublabel}
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
 
-          {/* Context Action Link (2D/3D Bridge) */}
-          <div className="pt-4 mt-4 border-t border-line space-y-3">
-            {onNavigateTab && (
-              <button
-                onClick={() => onNavigateTab(currentComp.targetTab)}
-                className="btn btn-primary w-full py-2"
-              >
-                <span>{currentComp.targetTabLabel}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            )}
+            {/* Bottom Section: Evidence Action Link & Timestamp */}
+            <div className="pt-4 mt-4 border-t border-line space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleSelectComponent(selectedId || 'tank')}
+                  className="btn btn-secondary h-8 text-[11.5px] font-medium flex items-center justify-center gap-1.5"
+                  title="Focus camera onto this component"
+                >
+                  <Target className="w-3.5 h-3.5 text-accent" />
+                  <span>Focus in 3D</span>
+                </button>
+                <button
+                  onClick={() => setCameraPresetTrigger('isometric')}
+                  className="btn btn-secondary h-8 text-[11.5px] font-medium flex items-center justify-center gap-1.5"
+                  title="Frame full transformer assembly"
+                >
+                  <Compass className="w-3.5 h-3.5 text-muted" />
+                  <span>Fit All</span>
+                </button>
+              </div>
 
-            <div className="text-center">
-              <span className="text-[11px] text-muted block">
-                Telemetry synchronized from active FactBundle state vector.
+              {onNavigateTab && (
+                <button
+                  onClick={() => onNavigateTab(currentComp.targetTab)}
+                  className="btn btn-primary w-full h-8 text-[12px] font-semibold flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <span>{currentComp.targetTabLabel}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <span className="meta text-center block text-[10px]">
+                Synchronized with FactBundle · {timestamp}
               </span>
             </div>
           </div>

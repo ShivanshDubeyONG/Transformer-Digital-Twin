@@ -8,6 +8,7 @@ import {
   Clock,
   Database,
   Zap,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { ReplayStatusResponse } from '../../types/contracts';
 import { getAssetContext, ALL_CPRI_ASSETS, CPRI_ASSET_RATINGS } from '../../utils/assetContext';
@@ -28,6 +29,8 @@ interface ReplayBarProps {
   onSpeedChange: (speed: number) => void;
   onReset: () => void;
   isBackendHealthy: boolean;
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export const ReplayBar: React.FC<ReplayBarProps> = ({
@@ -46,6 +49,8 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
   onSpeedChange,
   onReset,
   isBackendHealthy,
+  isSidebarOpen = true,
+  onToggleSidebar,
 }) => {
   const assetContext = getAssetContext(assetId);
   const processed = replayStatus?.processed_events ?? 0;
@@ -67,11 +72,23 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
       : 0;
 
   return (
-    <div className="card mb-8">
+    <div className="card mb-6">
       {/* Top Row: Asset / Dataset Identity & Twin Lifecycle */}
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 sm:px-5 py-3.5 border-b border-line">
+      <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2.5 px-4 sm:px-5 py-3 border-b border-line">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 min-w-0">
-          <div className="flex items-center gap-2.5 min-w-0">
+          {!isSidebarOpen && onToggleSidebar && (
+            <button
+              onClick={onToggleSidebar}
+              className="hidden lg:flex items-center gap-1.5 h-8 px-2.5 rounded border border-line bg-surface-2 hover:bg-surface text-ink hover:text-accent text-[12px] font-medium transition-colors shadow-xs"
+              title="Open navigation sidebar"
+              id="replay-open-sidebar-btn"
+            >
+              <PanelLeftOpen className="w-3.5 h-3.5 text-accent" />
+              <span>Sidebar</span>
+            </button>
+          )}
+
+          <div className="flex items-center gap-2 min-w-0">
             <span
               className={`dot w-2 h-2 ${isBackendHealthy ? 'bg-ok' : 'bg-crit'}`}
               title={isBackendHealthy ? 'Connected to digital twin server' : 'Backend offline'}
@@ -87,7 +104,7 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
               id="replay-dataset-select"
               value={selectedDataset}
               onChange={(e) => onDatasetChange(e.target.value)}
-              className="input w-auto max-w-[280px] sm:max-w-none py-1 pr-7 cursor-pointer font-medium text-[12px]"
+              className="input h-8 w-auto max-w-[280px] sm:max-w-none py-0 px-2.5 pr-7 cursor-pointer font-medium text-[12px]"
             >
               <option value="cpri_v3_0_2">CPRI Synthetic Benchmark v3.0.2 (Baseline)</option>
               <option value="gridpulse_synthetic_v1">GridPulse Synthetic v1.0.0 (Candidate)</option>
@@ -105,7 +122,7 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
                 id="replay-asset-select"
                 value={assetId}
                 onChange={(e) => onAssetChange(e.target.value)}
-                className="input w-auto py-1 pr-7 cursor-pointer font-mono text-[12px] font-semibold text-ink"
+                className="input h-8 w-auto py-0 px-2.5 pr-7 cursor-pointer font-mono text-[12px] font-semibold text-ink"
                 title="Select transformer asset"
               >
                 {selectedDataset === 'gridpulse_synthetic_v1' ? (
@@ -132,7 +149,7 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
             <span
               className={`chip ${
                 assetContext.promotionStatus === 'PROMOTED' ? 'chip-ok' : 'chip-neutral'
-              } text-[11px] font-medium hidden sm:inline-flex`}
+              } text-[10.5px] font-medium hidden sm:inline-flex`}
             >
               {assetContext.promotionStatus === 'PROMOTED' ? (
                 <>
@@ -154,7 +171,7 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
                 Replay telemetry through the digital twin one {assetContext.cadenceLabel} measurement at a time.
               </span>
               <span className="chip chip-neutral">Ready to start</span>
-              <button onClick={onStartTwin} className="btn btn-primary px-4">
+              <button onClick={onStartTwin} className="btn btn-primary h-8 px-3.5">
                 <Play className="w-3.5 h-3.5 fill-current" />
                 <span>Start Digital Twin</span>
               </button>
@@ -174,12 +191,12 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
       </div>
 
       {/* Bottom Row: Timestamp, Replay Controls & Frame Progress */}
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 sm:px-5 py-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2.5 px-4 sm:px-5 py-3">
         {/* Event Timestamp */}
         <div className="flex items-center gap-2.5 min-w-0">
           <Clock className="w-4 h-4 text-muted flex-shrink-0" strokeWidth={1.75} />
           {hasFrames ? (
-            <span className="font-mono text-[13px] font-medium text-ink num">{formattedTime}</span>
+            <span className="font-mono text-[12.5px] font-medium text-ink num">{formattedTime}</span>
           ) : (
             <span className="chip chip-neutral normal-case tracking-normal text-[11px] font-medium">
               {formattedTime}
@@ -187,12 +204,12 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
           )}
         </div>
 
-        {/* Interactive Playback Controls */}
+        {/* Interactive Playback Controls - All unified to h-8 */}
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onPlayToggle}
             title={isPlaying ? 'Pause automatic replay' : 'Play automatic replay'}
-            className={`btn min-w-[84px] ${isPlaying ? 'btn-accent' : 'btn-primary'}`}
+            className={`btn h-8 min-w-[80px] px-3 ${isPlaying ? 'btn-accent' : 'btn-primary'}`}
           >
             {isPlaying ? (
               <>
@@ -207,12 +224,12 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
             )}
           </button>
 
-          <div className="segmented">
+          <div className="segmented h-8">
             <button
               onClick={onPrevious}
               disabled={!isTwinStarted || processed <= 0}
               title="Step back to previous telemetry frame"
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-1.5 h-7 px-2.5"
             >
               <StepBack className="w-3.5 h-3.5" />
               <span>Prev</span>
@@ -221,7 +238,7 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
               onClick={() => onNext(1)}
               disabled={!isTwinStarted || Boolean(replayStatus?.is_completed)}
               title="Process exactly the next 1 telemetry frame"
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-1.5 h-7 px-2.5"
             >
               <StepForward className="w-3.5 h-3.5" />
               <span>Next</span>
@@ -230,12 +247,13 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
               onClick={() => onNext(5)}
               disabled={!isTwinStarted || Boolean(replayStatus?.is_completed)}
               title="Process the next 5 telemetry frames"
+              className="h-7 px-2.5"
             >
               +5
             </button>
           </div>
 
-          <div className="hidden sm:inline-flex segmented">
+          <div className="hidden sm:inline-flex segmented h-8">
             {[
               { val: 1, label: '1×' },
               { val: 5, label: '5×' },
@@ -247,7 +265,7 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
                 disabled={!isTwinStarted}
                 title={`Advance replay at ${label} speed`}
                 data-active={speedMultiplier === val}
-                className="font-mono"
+                className="font-mono h-7 px-2.5"
               >
                 {label}
               </button>
@@ -258,7 +276,7 @@ export const ReplayBar: React.FC<ReplayBarProps> = ({
             onClick={onReset}
             disabled={!isTwinStarted && processed === 0}
             title="Reset replay to frame 0 and clear derived state"
-            className="icon-btn"
+            className="icon-btn w-8 h-8"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>

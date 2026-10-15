@@ -11,6 +11,7 @@ import {
   FileText,
   Box,
   History,
+  PanelLeftClose,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -22,6 +23,8 @@ interface NavbarProps {
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
   siteLabel?: string;
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 const BrandMark: React.FC = () => (
@@ -39,6 +42,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   theme = 'light',
   onToggleTheme,
   siteLabel = '',
+  isSidebarOpen = true,
+  onToggleSidebar,
 }) => {
   const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutGrid },
@@ -76,22 +81,40 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-40 w-60 flex-col bg-sidebar border-r border-line transition-colors">
-        {/* Brand */}
-        <div
-          onClick={() => onTabChange('overview')}
-          className="px-6 pt-8 pb-9 cursor-pointer select-none"
-        >
-          <div className="flex items-center gap-2.5">
-            <BrandMark />
-            <span className="font-display text-[25px] font-semibold tracking-[-0.01em] text-ink leading-none">
-              GridPulse
-            </span>
+      <aside
+        className={`hidden lg:flex fixed inset-y-0 left-0 z-40 w-60 flex-col bg-sidebar border-r border-line transition-transform duration-300 ease-in-out ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {/* Brand & Sidebar Close Toggle */}
+        <div className="px-5 pt-6 pb-6 select-none border-b border-line/60">
+          <div className="flex items-center justify-between">
+            <div
+              onClick={() => onTabChange('overview')}
+              className="flex items-center gap-2.5 cursor-pointer"
+              title="Go to Overview"
+            >
+              <BrandMark />
+              <span className="font-display text-[23px] font-semibold tracking-[-0.01em] text-ink leading-none">
+                GridPulse
+              </span>
+            </div>
+            {onToggleSidebar && (
+              <button
+                onClick={onToggleSidebar}
+                className="icon-btn w-8 h-8 rounded-lg hover:bg-surface text-muted hover:text-ink transition-colors flex items-center justify-center border border-transparent hover:border-line"
+                title="Close sidebar (Collapse)"
+                id="btn-close-sidebar"
+                aria-label="Close sidebar"
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
+            )}
           </div>
-          <p className="mt-3 text-[10.5px] font-medium text-muted leading-[1.55] tracking-[-0.02em]">
+          <p className="mt-2.5 text-[10.5px] font-medium text-muted leading-[1.5] tracking-[-0.01em]">
             Distribution Transformer Digital Twin
             <br />
-            <span className="text-muted">{siteLabel}</span>
+            <span className="text-muted/80">{siteLabel}</span>
           </p>
         </div>
 

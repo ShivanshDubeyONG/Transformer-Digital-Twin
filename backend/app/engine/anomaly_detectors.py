@@ -112,6 +112,38 @@ class AnomalyDetectorThresholds(BaseModel):
 
 DEFAULT_DETECTOR_THRESHOLDS = AnomalyDetectorThresholds()
 
+
+def resolve_detector_thresholds(
+    asset_id: str,
+    profile: Optional[AssetProfile] = None,
+    thresholds: Optional[AnomalyDetectorThresholds] = None,
+) -> AnomalyDetectorThresholds:
+    """Resolve detector thresholds for an asset, providing asset-specific watch calibration."""
+    if thresholds is not None:
+        return thresholds
+
+    aid_clean = str(asset_id).strip()
+    is_candidate = (
+        aid_clean in ("DT-01", "DT-02", "DT-03", "DT-04")
+        or "gridpulse" in aid_clean.lower()
+    )
+    if is_candidate:
+        v_nom = (
+            profile.rated_voltage_lv_v
+            if profile and profile.rated_voltage_lv_v
+            else 250.0
+        )
+        return AnomalyDetectorThresholds(
+            load_u_watch=0.50,
+            oti_watch_degc=65.0,
+            rise_watch_degc=28.0,
+            oil_level_watch_pct=36.0,
+            v_nominal_v=v_nom,
+            threshold_provenance="CANDIDATE_ASSET_CALIBRATED_WATCH",
+        )
+
+    return DEFAULT_DETECTOR_THRESHOLDS
+
 # Severity band for a reading between a detector's warning and critical thresholds. It matches the
 # WARNING band of othi.status_from_severity ([0.41, 0.61)), so a warning-level excursion reports a
 # WARNING domain and lands in the WARNING OTHI band (59..40), never CRITICAL.
@@ -1546,7 +1578,9 @@ class MultiDomainAnomalyEngine:
             profile: Optional asset nameplate/profile parameters.
         """
         self.asset_id = str(asset_id)
-        self.thresholds = thresholds or DEFAULT_DETECTOR_THRESHOLDS
+        self.thresholds = resolve_detector_thresholds(
+            asset_id=self.asset_id, profile=profile, thresholds=thresholds
+        )
         self.qualification = qualification
         self.profile = profile
 

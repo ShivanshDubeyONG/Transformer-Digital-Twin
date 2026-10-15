@@ -134,7 +134,7 @@ def test_e2e_full_operator_lifecycle_and_trip_unlatch(client: TestClient):
 
     # 5. Inject direct protection trip at t_trip
     curr_time_str = fb["health"]["timestamp_utc"]
-    curr_time = datetime.fromisoformat(curr_time_str)
+    curr_time = datetime.fromisoformat(curr_time_str.replace("Z", "+00:00"))
     t_trip = curr_time + timedelta(minutes=15)
     trip_event = _make_event("trip-ev-001", t_trip, asset_id="DT-01", is_trip=True)
 
