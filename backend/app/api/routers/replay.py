@@ -64,15 +64,19 @@ def ensure_dataset_loaded(
         for ev in storage.get_canonical_events(asset_id=asset_id, limit=64)
         if OPERATOR_INJECTED_FLAG not in ev.event_quality_flags
     ]
+    max_frames = int(os.getenv("MAX_REPLAY_FRAMES", "1000"))
     if not events_in_storage and asset_id in CPRI_SYNTHETIC_ASSET_RATINGS:
         # CPRI synthetic assets replay their CAL partition only; the TEST partition is reserved
         # for one-shot model evaluation. Oracle y_* labels never enter the runtime stream.
         cal_parquet = _find_data_file("data/processed/cpri_v3_calibration.parquet")
         if cal_parquet:
+            import gc
             import pandas as pd
             from app.adapters.cpri_v3 import CPRIv3SourceAdapter
             df = pd.read_parquet(cal_parquet, filters=[("meta_transformer_id", "==", asset_id)])
             df = df.drop(columns=[c for c in df.columns if c.startswith("y_")])
+            if max_frames > 0 and len(df) > max_frames:
+                df = df.head(max_frames)
             adapter = CPRIv3SourceAdapter()
             events = [
                 adapter.transform_record(
@@ -84,6 +88,8 @@ def ensure_dataset_loaded(
                 for i, r in enumerate(df.to_dict("records"))
             ]
             storage.insert_canonical_events(events)
+            del events, df
+            gc.collect()
     elif not events_in_storage and (asset_id in ("DT-01", "DT-02", "DT-03", "DT-04") or "gridpulse" in str(asset_id).lower()):
         # Candidate synthetic assets replay their CAL partition only; the TEST partition is reserved
         # for one-shot evaluation. Ingests via GridPulseSyntheticAdapter into immutable CanonicalEvents.
@@ -91,6 +97,7 @@ def ensure_dataset_loaded(
         if not candidate_csv:
             candidate_csv = _find_data_file("data/gridpulse_synthetic_30min.csv")
         if candidate_csv:
+            import gc
             import pandas as pd
             from app.adapters.gridpulse_synthetic import GridPulseSyntheticAdapter
             df_full = pd.read_csv(candidate_csv, low_memory=False)
@@ -98,6 +105,8 @@ def ensure_dataset_loaded(
             if df_asset.empty:
                 raise ReplayException(f"No CAL partition records found for candidate asset {asset_id} in {candidate_csv}")
             df_asset = df_asset.sort_values("timestamp_utc").reset_index(drop=True)
+            if max_frames > 0 and len(df_asset) > max_frames:
+                df_asset = df_asset.head(max_frames)
             adapter = GridPulseSyntheticAdapter()
             events = [
                 adapter.transform_record(
@@ -109,6 +118,8 @@ def ensure_dataset_loaded(
                 for i, r in enumerate(df_asset.to_dict("records"))
             ]
             storage.insert_canonical_events(events)
+            del events, df_full, df_asset
+            gc.collect()
         else:
             raise ReplayException(
                 f"Candidate dataset gridpulse_synthetic_30min.csv not found for asset {asset_id}. "
