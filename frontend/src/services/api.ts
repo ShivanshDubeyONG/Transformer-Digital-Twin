@@ -18,7 +18,12 @@ import {
   HistoryResponse,
 } from '../types/contracts';
 
-const API_BASE = ''; // Uses Vite proxy config pointing to http://localhost:8000
+const rawBase = (import.meta.env.VITE_API_BASE as string | undefined)?.trim();
+export const API_BASE = rawBase
+  ? rawBase.startsWith('http://') || rawBase.startsWith('https://')
+    ? rawBase.replace(/\/+$/, '')
+    : `https://${rawBase.replace(/\/+$/, '')}`
+  : '';
 
 export interface HealthCheckResponse {
   status: string;

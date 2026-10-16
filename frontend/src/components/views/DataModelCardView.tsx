@@ -1,6 +1,6 @@
 import React from 'react';
 import { Cpu } from 'lucide-react';
-import { ModelCardData } from '../../services/api';
+import { API_BASE, ModelCardData } from '../../services/api';
 import { UIHonestyBadge } from '../common/UIHonestyBadge';
 
 const fmt = (v: number | null | undefined, digits: number): string => (v == null ? '—' : v.toFixed(digits));
@@ -30,21 +30,21 @@ export const DataModelCardView: React.FC<DataModelCardViewProps> = ({ modelCard 
 
   const exports = [
     {
-      href: '/v1/reports/summary.pdf',
+      href: `${API_BASE}/v1/reports/summary.pdf`,
       title: 'Export PDF',
       tag: 'PDF',
       desc: 'Audit / historical condition report with frozen provenance and qualification gates.',
       cta: 'Download PDF Report →',
     },
     {
-      href: '/v1/reports/summary.csv',
+      href: `${API_BASE}/v1/reports/summary.csv`,
       title: 'Export CSV',
       tag: 'CSV',
       desc: 'Tabular metrics and electrical features export for external statistical audit.',
       cta: 'Download CSV Data →',
     },
     {
-      href: '/v1/reports/summary.json',
+      href: `${API_BASE}/v1/reports/summary.json`,
       title: 'Export JSON',
       tag: 'JSON',
       desc: 'Complete machine-readable FactBundle state vector snapshot with SHA-256 hashes.',

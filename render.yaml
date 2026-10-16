@@ -1,0 +1,41 @@
+services:
+  # 1. Backend REST API Service (Docker container with WeasyPrint & DuckDB)
+  - type: web
+    name: transformer-digital-twin-backend
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DB_PATH
+        value: :memory:
+      - key: DEFAULT_ASSET_ID
+        value: TX_1000_COMM
+      - key: PARQUET_DIR
+        value: /app/data/processed
+      - key: CORS_ORIGINS
+        value: "*"
+
+  # 2. Frontend React Dashboard (Vite Single Page Application on Render CDN)
+  - type: web
+    name: transformer-digital-twin-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    plan: free
+    region: oregon
+    envVars:
+      - key: VITE_API_BASE
+        fromService:
+          type: web
+          name: transformer-digital-twin-backend
+          property: host
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
