@@ -19,6 +19,7 @@ GridPulse is a physics-grounded, stateful real-time condition monitoring and pre
 <img width="1600" height="815" alt="WhatsApp Image 2026-10-16 at 10 03 08" src="https://github.com/user-attachments/assets/36ec7b82-23f3-4195-a919-f6af5e30b781" />
 
 
+
 The core twin tracks transformer telemetry in continuous time using a first-order grey-box thermal differential equation (IEC 60076-7 / IEEE C57.91) coupled with multi-domain electrical, oil-level, tank pressure, and protection analysis. It processes active/reactive power, line currents, line-to-neutral voltages, winding temperatures, ambient conditions, conservator oil level, sealed-tank gauge pressure, and protection trip contacts to maintain a strictly synchronized, replayable state vector. Every state update produces a cryptographically hashed FactBundle ensuring complete auditability and provenance.
 
 <img width="1600" height="815" alt="WhatsApp Image 2026-10-16 at 10 03 08 (1)" src="https://github.com/user-attachments/assets/091d7052-71fa-4174-94e9-1af15eb1260e" />
