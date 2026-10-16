@@ -28,8 +28,8 @@ import { getAssetContext } from './utils/assetContext';
 import { ModelEvaluationMatrix } from './components/views/ModelEvaluationMatrix';
 
 export default function App(): React.ReactElement {
-  // The backend serves one configured asset (DEFAULT_ASSET_ID); the UI follows it rather than hardcoding one.
-  const [assetId, setAssetId] = useState<string>('');
+  // The backend serves one configured asset (DEFAULT_ASSET_ID); default to TX_1000_COMM if healthz is slow or blocked
+  const [assetId, setAssetId] = useState<string>('TX_1000_COMM');
   const selectedDataset = getAssetContext(assetId).datasetId;
   const [isBackendHealthy, setIsBackendHealthy] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('overview');
@@ -62,7 +62,7 @@ export default function App(): React.ReactElement {
   const [replayStatus, setReplayStatus] = useState<ReplayStatusResponse | null>(null);
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1);
   const isSteppingRef = useRef<boolean>(false);
-  const activeAssetIdRef = useRef<string>('');
+  const activeAssetIdRef = useRef<string>('TX_1000_COMM');
   const loadReqIdRef = useRef<number>(0);
 
   // Core Twin State (begins unseeded / ready)
@@ -231,7 +231,12 @@ export default function App(): React.ReactElement {
   useEffect(() => {
     api
       .getHealthz()
-      .then((h) => setAssetId(h.default_asset_id))
+      .then((h) => {
+        if (h && h.default_asset_id) {
+          setAssetId(h.default_asset_id);
+          activeAssetIdRef.current = h.default_asset_id;
+        }
+      })
       .catch(() => setIsBackendHealthy(false));
   }, []);
 

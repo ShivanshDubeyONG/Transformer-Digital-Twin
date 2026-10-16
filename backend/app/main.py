@@ -197,6 +197,13 @@ def create_app(
         tags=["System"],
         summary="Application liveness and subsystem readiness probe",
     )
+    @app.get(
+        "/v1/system/health",
+        response_model=HealthCheckResponse,
+        status_code=status.HTTP_200_OK,
+        tags=["System"],
+        summary="Application liveness and subsystem readiness probe (API alias)",
+    )
     async def healthcheck(
 
         state: AppState = Depends(get_app_state),
