@@ -19,6 +19,8 @@ services:
         value: /app/data/processed
       - key: CORS_ORIGINS
         value: "*"
+      - key: PORT
+        value: "8000"
 
   # 2. Frontend React Dashboard (Vite Single Page Application on Render CDN)
   - type: web

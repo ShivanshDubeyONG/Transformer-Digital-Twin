@@ -138,8 +138,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.app_state = app_state
 
         if settings.environment != "test":
+            import asyncio
             from app.api.routers.replay import ensure_dataset_loaded
-            ensure_dataset_loaded(storage, replay_engine, settings.default_asset_id)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.run_in_executor(None, ensure_dataset_loaded, storage, replay_engine, settings.default_asset_id)
+            except RuntimeError:
+                pass
 
     yield
 
