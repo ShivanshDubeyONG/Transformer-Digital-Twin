@@ -1,6 +1,6 @@
 # GridPulse — Distribution Transformer Digital Twin
 
-**POWERNext-AI Hackathon 2026 — Track 2: Digital Twin for Intelligent Health Monitoring and Predictive Maintenance of Distribution Transformers**
+
 
 > **Current Implementation State:** Phases 1–8 Implemented, Evaluated, and Integrated (**PASS**).  
 > Both CPRI v3.0.2 Baseline (8 assets) and GridPulse Synthetic v1.0.0 Candidate (`DT-01` Promoted; `DT-02`..`04` Gated) are operational with dynamic switching and reliable fallback.  
@@ -16,7 +16,13 @@
 
 GridPulse is a physics-grounded, stateful real-time condition monitoring and predictive maintenance digital twin engineered specifically for medium- and low-voltage distribution assets. Unlike black-box machine learning approaches that overclaim remaining useful life without physical validation, GridPulse combines deterministic physical principles with robust statistical anomaly detection, conformal uncertainty estimation, and construction-aware operational capability gating.
 
+<img width="1600" height="815" alt="WhatsApp Image 2026-10-16 at 10 03 08" src="https://github.com/user-attachments/assets/36ec7b82-23f3-4195-a919-f6af5e30b781" />
+
+
 The core twin tracks transformer telemetry in continuous time using a first-order grey-box thermal differential equation (IEC 60076-7 / IEEE C57.91) coupled with multi-domain electrical, oil-level, tank pressure, and protection analysis. It processes active/reactive power, line currents, line-to-neutral voltages, winding temperatures, ambient conditions, conservator oil level, sealed-tank gauge pressure, and protection trip contacts to maintain a strictly synchronized, replayable state vector. Every state update produces a cryptographically hashed FactBundle ensuring complete auditability and provenance.
+
+<img width="1600" height="815" alt="WhatsApp Image 2026-10-16 at 10 03 08 (1)" src="https://github.com/user-attachments/assets/091d7052-71fa-4174-94e9-1af15eb1260e" />
+
 
 Operational health is evaluated across five independent diagnostic domains: **Thermal**, **Electrical**, **Insulation**, **Mechanical**, and **Oil/Protection Status**. The system computes a bounded Operational Transformer Health Index (OTHI) on a 0–100 scale, dynamically gating domain weights based on telemetry freshness, asset construction (conservator vs sealed corrugated tank), and sensor reliability.
 
@@ -37,6 +43,8 @@ GridPulse includes an interactive WebGL/Three.js digital twin visualization engi
   - Multi-Point Studio Lighting: Directional key, soft fill, rim, and ground bounce lighting for crisp depth and contour visibility.
 - **Low-Profile Micro-Tag HUD**: Compact, non-occluding pill callout badge showing live component status, sensor readings, quick navigation links (`details →`), and instant dismissal without obstructing 3D geometry.
 - **Workspace Optimization**: Collapsible left navigation sidebar maximizing viewport real estate for detailed 3D inspection.
+
+<img width="1600" height="814" alt="WhatsApp Image 2026-10-16 at 10 03 08 (2)" src="https://github.com/user-attachments/assets/f8e4a66c-5056-4eab-b74b-82e4d2d70d5f" />
 
 ---
 
