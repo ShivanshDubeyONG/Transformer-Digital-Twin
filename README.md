@@ -1,6 +1,10 @@
 # GridPulse — Distribution Transformer Digital Twin
 
 
+**[LIVE DEMO](https://gridpulse-xy0y.onrender.com/)**
+
+
+
 
 > **Current Implementation State:** Phases 1–8 Implemented, Evaluated, and Integrated (**PASS**).  
 > Both CPRI v3.0.2 Baseline (8 assets) and GridPulse Synthetic v1.0.0 Candidate (`DT-01` Promoted; `DT-02`..`04` Gated) are operational with dynamic switching and reliable fallback.  
@@ -13,8 +17,6 @@
 ---
 
 ## ⚡ Project Overview
-
-**[LIVE DEMO](https://gridpulse-xy0y.onrender.com/)**
 
 GridPulse is a physics-grounded, stateful real-time condition monitoring and predictive maintenance digital twin engineered specifically for medium- and low-voltage distribution assets. Unlike black-box machine learning approaches that overclaim remaining useful life without physical validation, GridPulse combines deterministic physical principles with robust statistical anomaly detection, conformal uncertainty estimation, and construction-aware operational capability gating.
 
