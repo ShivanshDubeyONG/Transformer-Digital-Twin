@@ -5,17 +5,6 @@
 
 
 
-
-> **Current Implementation State:** Phases 1–8 Implemented, Evaluated, and Integrated (**PASS**).  
-> Both CPRI v3.0.2 Baseline (8 assets) and GridPulse Synthetic v1.0.0 Candidate (`DT-01` Promoted; `DT-02`..`04` Gated) are operational with dynamic switching and reliable fallback.  
-> **Key References:**
-> - Master Execution Plan: [`GRIDPULSE_MASTER_EXECUTION_PLAN.md`](GRIDPULSE_MASTER_EXECUTION_PLAN.md)
-> - Extra Domains & Candidate Scope: [`GRIDPULSE_DATASET_SYN_ADAPTATION_AND_EXTRA_DOMAIN_SCOPE.md`](GRIDPULSE_DATASET_SYN_ADAPTATION_AND_EXTRA_DOMAIN_SCOPE.md)
-> - Technical References & Bibliography: [`docs/references/TECHNICAL_REFERENCES_AND_CITATIONS.md`](docs/references/TECHNICAL_REFERENCES_AND_CITATIONS.md)
-> - Execution & Verification Log: [`docs/execution/GRIDPULSE_EXECUTION_LOG.md`](docs/execution/GRIDPULSE_EXECUTION_LOG.md)
-
----
-
 ## ⚡ Project Overview
 
 GridPulse is a physics-grounded, stateful real-time condition monitoring and predictive maintenance digital twin engineered specifically for medium- and low-voltage distribution assets. Unlike black-box machine learning approaches that overclaim remaining useful life without physical validation, GridPulse combines deterministic physical principles with robust statistical anomaly detection, conformal uncertainty estimation, and construction-aware operational capability gating.
