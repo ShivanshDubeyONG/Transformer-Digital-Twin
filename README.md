@@ -14,6 +14,8 @@
 
 ## ⚡ Project Overview
 
+**[LIVE DEMO](https://gridpulse-xy0y.onrender.com/)**
+
 GridPulse is a physics-grounded, stateful real-time condition monitoring and predictive maintenance digital twin engineered specifically for medium- and low-voltage distribution assets. Unlike black-box machine learning approaches that overclaim remaining useful life without physical validation, GridPulse combines deterministic physical principles with robust statistical anomaly detection, conformal uncertainty estimation, and construction-aware operational capability gating.
 
 <img width="1600" height="815" alt="WhatsApp Image 2026-10-16 at 10 03 08" src="https://github.com/user-attachments/assets/36ec7b82-23f3-4195-a919-f6af5e30b781" />
